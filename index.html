@@ -1,0 +1,1517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Breeding calculator for the Realistic Horse Genetics Minecraft mod. Enter two parents' guidebook stats and see the three most likely foals.">
+<meta property="og:title" content="Foal Forecast">
+<meta property="og:description" content="Breeding calculator for the Realistic Horse Genetics Minecraft mod: the three most likely foals, with height, health, speed and jump.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Foal Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: a breeder's desk. Two parent cards side by side, the forecast laid out as three open guidebook pages beneath. */
+:root {
+  --bg: #ECEFE6;
+  --surface: #FBFBF7;
+  --surface-2: #F2F4EC;
+  --ink: #24211B;
+  --muted: #5F5A4F;
+  --line: #D2D5C7;
+  --accent: #2E6A33;
+  --accent-hover: #24552A;
+  --accent-ink: #FFFFFF;
+  --stale: #8A6100;
+
+  /* The guidebook page stays parchment in both themes, like the in-game book */
+  --leather: #7A3B22;
+  --leather-2: #5C2B17;
+  --parchment: #F4EAD0;
+  --parchment-2: #E6D7B2;
+  --parchment-ink: #2B2115;
+  --parchment-muted: #6A5839;
+
+  --t0-bg: #EBCBC2; --t0-ink: #7A281C;
+  --t1-bg: #E2D6B9; --t1-ink: #4A3E2A;
+  --t2-bg: #CFE2C4; --t2-ink: #234F1F;
+  --t3-bg: #EED68F; --t3-ink: #5A3F00;
+
+  --warn-bg: #F7EBCD; --warn-ink: #5E4300;
+  --danger-bg: #F5DCD7; --danger-ink: #7A2418;
+
+  --size0: #B9805C; --size1: #D9B26A; --size2: #6E9A5E; --size3: #3F6E7E;
+
+  --font-display: "Pixelify Sans", "Courier New", ui-monospace, monospace;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 8px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #181A15;
+    --surface: #22251E;
+    --surface-2: #2A2E25;
+    --ink: #E9E7DD;
+    --muted: #A9A495;
+    --line: #3A3E33;
+    --accent: #7DBA70;
+    --accent-hover: #93CB86;
+    --accent-ink: #0F1E0D;
+    --stale: #E2B54A;
+    --leather: #8E4B2E;
+    --leather-2: #6B3620;
+    --parchment: #DDD0B0;
+    --parchment-2: #C9B993;
+    --warn-bg: #3A3220; --warn-ink: #EBCF8A;
+    --danger-bg: #3E2420; --danger-ink: #F0A496;
+    --size0: #C99372; --size1: #E1BF7C; --size2: #86B276; --size3: #6A9DAE;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #181A15;
+  --surface: #22251E;
+  --surface-2: #2A2E25;
+  --ink: #E9E7DD;
+  --muted: #A9A495;
+  --line: #3A3E33;
+  --accent: #7DBA70;
+  --accent-hover: #93CB86;
+  --accent-ink: #0F1E0D;
+  --stale: #E2B54A;
+  --leather: #8E4B2E;
+  --leather-2: #6B3620;
+  --parchment: #DDD0B0;
+  --parchment-2: #C9B993;
+  --warn-bg: #3A3220; --warn-ink: #EBCF8A;
+  --danger-bg: #3E2420; --danger-ink: #F0A496;
+  --size0: #C99372; --size1: #E1BF7C; --size2: #86B276; --size3: #6A9DAE;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: grid;
+  gap: 28px;
+}
+
+/* Header */
+.masthead { display: grid; gap: 8px; }
+.masthead .eyebrow {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700;
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(34px, 6vw, 48px);
+  line-height: 1;
+  margin: 0;
+  display: flex; align-items: center; gap: 14px;
+  text-wrap: balance;
+}
+h1 svg { width: .8em; height: .8em; flex: none; }
+.lede { margin: 0; max-width: 64ch; color: var(--muted); font-size: 16px; }
+.example-note {
+  justify-self: start;
+  font-size: 13px; color: var(--muted);
+  background: var(--surface-2); border: 1px dashed var(--line); border-radius: 999px;
+  padding: 3px 12px;
+}
+
+/* Parent cards */
+.parents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}
+.parent {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 18px 20px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-width: 0;
+}
+.parent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.parent h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  margin: 0;
+  line-height: 1.1;
+}
+.parent-head .role { font-size: 13px; color: var(--muted); }
+.sex {
+  display: inline-grid; place-items: center;
+  width: 1.4em; height: 1.4em; margin-right: 6px;
+  border-radius: 4px; font-size: 18px; vertical-align: 2px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.block { display: grid; gap: 8px; }
+.block-title {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
+.block-title .src { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 12px; }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 12.5rem);
+  align-items: center;
+  gap: 10px;
+}
+.row > label { min-width: 0; }
+.row .ctl { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.row .ctl > select, .row .ctl > input { flex: 1; min-width: 0; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 0; }
+.hint.err { color: var(--danger-ink); }
+.subs {
+  display: grid; gap: 8px;
+  margin-left: 4px; padding-left: 14px;
+  border-left: 2px solid var(--line);
+}
+.subs .row > label { color: var(--muted); }
+
+select, input[type="text"] {
+  font: inherit;
+  color: var(--ink);
+  background-color: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 10px;
+  min-height: 38px;
+}
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  text-overflow: ellipsis;
+}
+select:hover, input[type="text"]:hover { border-color: var(--muted); }
+select.mixed { color: var(--muted); font-style: italic; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.split {
+  font: inherit; font-size: 12.5px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  min-height: 38px;
+  padding: 0 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.split:hover { color: var(--ink); border-color: var(--muted); }
+.split[aria-expanded="true"] { background: var(--surface-2); color: var(--ink); }
+
+/* Shared controls */
+.shared {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+}
+.shared .row { grid-template-columns: minmax(0, 1fr) minmax(0, 22rem); }
+details.colour > summary {
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+details.colour > summary::-webkit-details-marker { display: none; }
+details.colour > summary::before {
+  content: "+"; font-family: var(--font-display); width: 1em; display: inline-block; color: var(--muted);
+}
+details.colour[open] > summary::before { content: "\2212"; }
+details.colour > summary .hint { font-weight: 400; }
+.colour-body { display: grid; gap: 10px; margin-top: 12px; }
+.table-scroll { overflow-x: auto; }
+table.genes { border-collapse: collapse; width: 100%; min-width: 380px; }
+table.genes th, table.genes td { padding: 4px 4px; text-align: left; }
+table.genes thead th {
+  font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700;
+  border-bottom: 1px solid var(--line); padding-bottom: 6px;
+}
+table.genes tbody th { font-weight: 400; white-space: nowrap; padding-right: 10px; }
+table.genes td .pair { display: flex; gap: 4px; align-items: center; }
+table.genes td .pair span { color: var(--muted); }
+table.genes select { min-height: 32px; padding: 4px 22px 4px 8px; min-width: 0; width: 100%; background-position: calc(100% - 12px) 52%, calc(100% - 7px) 52%; }
+table.genes tbody tr + tr th, table.genes tbody tr + tr td { border-top: 1px solid var(--surface-2); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn {
+  font: inherit; font-weight: 700;
+  border-radius: 6px;
+  min-height: 42px;
+  padding: 0 16px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary {
+  background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .02em;
+  padding: 0 22px;
+}
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); font-weight: 400; padding: 0 10px; }
+.btn.quiet:hover { color: var(--ink); text-decoration: underline; }
+.status { font-size: 13px; color: var(--muted); }
+.status.stale { color: var(--stale); font-weight: 700; }
+
+/* Results */
+.results { display: grid; gap: 18px; }
+.results-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+.results-head h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 28px; margin: 0; line-height: 1.1;
+}
+.results-head p { margin: 0; color: var(--muted); font-size: 13px; }
+.results.is-stale .cards, .results.is-stale .overall { opacity: .55; filter: saturate(.6); transition: opacity .2s; }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.page {
+  background: var(--parchment);
+  color: var(--parchment-ink);
+  border: 4px solid var(--leather);
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 3px var(--parchment-2), 0 2px 0 var(--leather-2);
+  padding: 18px 18px 16px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.page-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.rank { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--parchment-muted); font-weight: 700; }
+.pct {
+  font-family: var(--font-display); font-weight: 600;
+  font-size: 46px; line-height: .95;
+  font-variant-numeric: tabular-nums;
+}
+.pct small { font-size: 22px; }
+.page-no { font-family: var(--font-display); font-size: 14px; color: var(--parchment-muted); white-space: nowrap; }
+.chance-bar { height: 8px; background: var(--parchment-2); border-radius: 2px; overflow: hidden; }
+.chance-bar > i { display: block; height: 100%; background: var(--leather); }
+.page h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 22px; margin: 0; line-height: 1.15;
+}
+.page h3 .sub { display: block; font-family: var(--font-body); font-weight: 400; font-size: 13.5px; color: var(--parchment-muted); margin-top: 3px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 12.5px; font-weight: 700;
+  padding: 2px 9px; border-radius: 999px;
+  white-space: nowrap;
+}
+.chip.t0 { background: var(--t0-bg); color: var(--t0-ink); }
+.chip.t1 { background: var(--t1-bg); color: var(--t1-ink); }
+.chip.t2 { background: var(--t2-bg); color: var(--t2-ink); }
+.chip.t3 { background: var(--t3-bg); color: var(--t3-ink); }
+dl.stats { margin: 0; display: grid; gap: 0; }
+dl.stats > div {
+  display: grid;
+  grid-template-columns: 1.4em minmax(0, 7.5em) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-top: 1px solid var(--parchment-2);
+}
+dl.stats dt { color: var(--parchment-muted); font-size: 13.5px; }
+dl.stats dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; }
+dl.stats dd b { font-size: 17px; }
+dl.stats dd .rng { display: block; font-size: 12.5px; color: var(--parchment-muted); }
+dl.stats .ico { align-self: center; display: grid; place-items: center; }
+dl.stats .ico svg { width: 15px; height: 15px; }
+.page-note { font-size: 12.5px; color: var(--parchment-muted); margin: 0; }
+.page-note.alert { color: var(--t0-ink); font-weight: 700; }
+
+details.book > summary {
+  cursor: pointer; list-style: none;
+  font-size: 13px; font-weight: 700; color: var(--parchment-muted);
+}
+details.book > summary::-webkit-details-marker { display: none; }
+details.book > summary::before { content: "\25B8  "; }
+details.book[open] > summary::before { content: "\25BE  "; }
+.bookpage {
+  margin-top: 10px;
+  font-family: var(--font-display);
+  font-size: 14px; line-height: 1.35;
+  background: var(--parchment-2);
+  border-radius: 3px;
+  padding: 10px 12px;
+  display: grid; gap: 8px;
+}
+.bookpage .bh { font-weight: 600; }
+.bookpage .bl { padding-left: 12px; display: flex; justify-content: space-between; gap: 8px; }
+.bookpage .bl span:last-child { text-align: right; }
+
+.overall {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 16px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: grid; gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+.panel h3 { font-family: var(--font-display); font-weight: 600; font-size: 19px; margin: 0; }
+.sizebar { display: flex; height: 18px; border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+.sizebar > i { display: block; height: 100%; }
+.legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 14px; }
+.legend .sw { width: 12px; height: 12px; border-radius: 2px; }
+.legend .n { font-variant-numeric: tabular-nums; color: var(--muted); }
+.legend .desc { color: var(--muted); font-size: 12.5px; }
+.odds { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.odds li { display: grid; grid-template-columns: minmax(0, 1fr) 3.4em; gap: 10px; align-items: center; font-size: 14px; }
+.odds .lbl { min-width: 0; }
+.odds .meter { display: block; height: 5px; margin-top: 3px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+.odds .meter > i { display: block; height: 100%; background: var(--leather); }
+.odds .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.alerts { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.alerts li { padding: 9px 12px; border-radius: 6px; font-size: 14px; background: var(--warn-bg); color: var(--warn-ink); }
+.alerts li.danger { background: var(--danger-bg); color: var(--danger-ink); }
+.alerts li.ok { background: var(--surface-2); color: var(--muted); }
+
+/* How it works */
+details.how {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+}
+details.how > summary { cursor: pointer; font-weight: 700; }
+details.how .how-body { max-width: 72ch; display: grid; gap: 10px; margin-top: 10px; color: var(--muted); }
+details.how ul { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+details.how a { color: var(--accent); }
+.foot { font-size: 12.5px; color: var(--muted); margin: 0; }
+
+@media (max-width: 420px) {
+  .row { grid-template-columns: minmax(0, 1fr) minmax(0, 10.5rem); }
+  .shared .row { grid-template-columns: 1fr; }
+  .pct { font-size: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Realistic Horse Genetics · breeding calculator</div>
+    <h1><span id="logo"></span>Foal Forecast</h1>
+    <p class="lede">Copy what the Breeder's Guidebook says about a mare and a stallion, then press Calculate. You get the three most likely foals, with their height, health, speed and jump.</p>
+    <p class="example-note" id="example-note">Loaded with two example horses. Replace them with your own.</p>
+  </header>
+
+  <form id="form" novalidate>
+    <div class="parents">
+      <section class="parent" id="dam-panel" aria-labelledby="dam-title"></section>
+      <section class="parent" id="sire-panel" aria-labelledby="sire-title"></section>
+    </div>
+
+    <div class="shared" style="margin-top:16px">
+      <div class="row">
+        <label for="related"><b>How are they related?</b><br><span class="hint">Sets the foal's immune system. A parent's own immune score doesn't pass on.</span></label>
+        <div class="ctl">
+          <select id="related">
+            <option value="0">Not related, or from different herds</option>
+            <option value="0.0625">Distant (cousins, same small herd)</option>
+            <option value="0.125">Half-siblings, or grandparent and grandfoal</option>
+            <option value="0.25">Full siblings, or parent and own foal</option>
+            <option value="0.4">Close relatives from an already inbred line</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="colour" id="colour-details">
+        <summary>Colour genes <span class="hint">Optional. Page 3 of the guidebook. Also checks colour-linked health risks like lethal white.</span></summary>
+        <div class="colour-body">
+          <p class="hint">Copy each pair in the same order as the book. Order matters for Extension and Tobiano/KIT because they sit next to each other on the same chromosome. Leave "?" for anything you haven't checked.</p>
+          <div class="table-scroll">
+            <table class="genes" id="gene-table">
+              <thead><tr><th scope="col">Gene</th><th scope="col">Mare</th><th scope="col">Stallion</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="calc">Calculate</button>
+        <button type="button" class="btn" id="swap">Swap mare and stallion</button>
+        <button type="button" class="btn quiet" id="example">Load example</button>
+        <button type="button" class="btn quiet" id="clear">Clear</button>
+        <span class="status" id="status" role="status"></span>
+      </div>
+    </div>
+  </form>
+
+  <section class="results" id="results" aria-live="polite">
+    <div class="results-head">
+      <h2>Most likely foals</h2>
+      <p id="results-meta"></p>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="overall" id="overall"></div>
+  </section>
+
+  <details class="how">
+    <summary>How the forecast works</summary>
+    <div class="how-body">
+      <p>The calculator runs 40,000 simulated breedings with the same rules the mod uses, then groups foals by size class and by how good their speed, jump and health genes are. The three biggest groups are shown.</p>
+      <ul>
+        <li><b>Guidebook ratings are ranges.</b> Each line in the book adds up 4 hidden genes with 2 copies each, scored 0 to 8: Abysmal 0, Poor 1–2, Average 3–5, Good 6–7, Excellent 8. Every gene combination that fits the rating is considered.</li>
+        <li><b>Each parent passes one copy of every gene</b>, picked at random, exactly as in the mod. That's why a foal can beat both parents.</li>
+        <li><b>Speed and jump</b> add Athleticism and Energy to their own three lines. Speed in blocks per second is the speed attribute × 42.16. Jump height uses Minecraft's jump-strength curve. Vanilla horses run 4.7–14.2 blocks/s and jump 1.1–5.3 blocks.</li>
+        <li><b>Max health</b> is 15 + half of (lung + gut + hoof + immune), then scaled by adult size, so big horses get more health. Gray, silver dapple and leopard can each take a little away.</li>
+        <li><b>Height.</b> LCORL Large adds 3% per copy. HMGA2 Small takes off 6% with one copy and 19% with two. About 20 hidden genes add the rest, so a parent's height (from its inventory screen) is used to estimate them. A foal's adult height is also pulled 30% toward its mother's height.</li>
+        <li><b>Size classes</b> follow the mod: under 317.5 kg is too small to ride, over 635 kg fits two riders. Pony-sized means 14.2 hands or less.</li>
+        <li>Assumes the mod's default settings (sizes, genetic stats and health effects all on).</li>
+      </ul>
+      <p>Built from the mod's own source code: <a href="https://github.com/sekelsta/horse-colors" target="_blank" rel="noopener">github.com/sekelsta/horse-colors</a>. Fan-made, not affiliated with the mod author.</p>
+    </div>
+  </details>
+</div>
+
+<script id="engine">
+/* ===================== Genetics engine (mirrors Realistic Horse Genetics) ===================== */
+const LN = Math.log;
+const RATINGS = ['Abysmal', 'Poor', 'Average', 'Good', 'Excellent'];
+const RANGE = { Abysmal: [0, 0], Poor: [1, 2], Average: [3, 5], Good: [6, 7], Excellent: [8, 8] };
+const CATS = ['lung', 'gut', 'hoof', 'athl', 'energy', 'quick', 'stride', 'sconf', 'bascule', 'agility', 'jconf'];
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+function judge(v) { return v <= 0 ? 0 : v <= 2 ? 1 : v <= 5 ? 2 : v <= 7 ? 3 : 4; }
+const IMMUNE_LABELS = ['Extremely inbred', 'Inbred', 'Mediocre', 'Diverse'];
+function judgeImmune(x) { const v = Math.floor(x); return v <= 0 ? 0 : v <= 2 ? 1 : v <= 5 ? 2 : 3; }
+
+function popcount(x) { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
+function conv(a, b) {
+  const o = new Array(a.length + b.length - 1).fill(0);
+  for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) o[i + j] += a[i] * b[j];
+  return o;
+}
+function toCdf(p) {
+  const c = []; let s = 0;
+  for (const v of p) { s += v; c.push(s); }
+  return c.map(v => v / s);
+}
+function drawCdf(c, u) { let i = 0; while (i < c.length - 1 && u >= c[i]) i++; return i; }
+
+/* A guidebook line = 4 genes x 2 copies, each copy 0 or 1, 50/50 in wild horses.
+   For a rating, average over every 8-bit pattern that fits, and get the chance the
+   parent passes 0..4 "good" copies to the foal (one copy per gene). */
+const GAMETE = {};
+for (const r of RATINGS) {
+  const [lo, hi] = RANGE[r];
+  const acc = [0, 0, 0, 0, 0]; let n = 0;
+  for (let m = 0; m < 256; m++) {
+    const pc = popcount(m);
+    if (pc < lo || pc > hi) continue;
+    n++;
+    let d = [1];
+    for (let i = 0; i < 4; i++) {
+      const q = (((m >> (2 * i)) & 1) + ((m >> (2 * i + 1)) & 1)) / 2;
+      const nd = new Array(d.length + 1).fill(0);
+      for (let k = 0; k < d.length; k++) { nd[k] += d[k] * (1 - q); nd[k + 1] += d[k] * q; }
+      d = nd;
+    }
+    for (let k = 0; k < 5; k++) acc[k] += d[k];
+  }
+  GAMETE[r] = acc.map(v => v / n);
+}
+
+/* ---------- Size loci (EquineGenome.getGeneticScale) ---------- */
+function cumToP(c) { const p = []; let prev = 0; for (const v of c) { p.push(Math.max(0, v - prev)); prev = Math.max(prev, v); } return p; }
+function additive(le) { return (a, b) => le[a] + le[b]; }
+const SIZE_HIDDEN = [];
+[
+  [[0.2145, 0.4235, 0.596, 0.8355, 1], 1.002, 1.009],
+  [[0.2345, 0.423, 0.5795, 0.842, 1], 1.003, 1.015],
+  [[0.1875, 0.383, 0.586, 0.841, 1], 1.001, 1.012],
+  [[0.2025, 0.4165, 0.614, 0.8145, 1], 1.001, 1.01],
+  [[0.1825, 0.391, 0.5815, 0.8085, 1], 1.002, 1.008],
+  [[0.2065, 0.4125, 0.5765, 0.794, 1], 1.001, 1.005],
+  [[0.1795, 0.384, 0.546, 0.7395, 1], 1.0025, 1.005],
+  [[0.212, 0.42, 0.616, 0.837, 1], 1.0025, 1.005],
+].forEach(([cum, c1, c3]) => SIZE_HIDDEN.push({ p: cumToP(cum), eff: additive([0, LN(c1), -LN(c1), LN(c3), -LN(c3)]) }));
+const SUBTLE_LE = [0, LN(1.001), -LN(1.001), LN(1.002), -LN(1.002), LN(1.003), -LN(1.003), LN(1.004), -LN(1.004)];
+[
+  [0.175, 0.288, 0.3815, 0.4785, 0.5515, 0.652, 0.758, 0.8845, 1],
+  [0.1885, 0.2795, 0.368, 0.4665, 0.566, 0.6675, 0.768, 0.8925, 1],
+  [0.209, 0.3185, 0.425, 0.518, 0.6395, 0.72, 0.79, 0.911, 1],
+  [0.2335, 0.345, 0.4185, 0.536, 0.6295, 0.748, 0.8245, 0.9155, 1],
+  [0.215, 0.3465, 0.443, 0.5135, 0.615, 0.7135, 0.821, 0.91, 1],
+  [0.158, 0.269, 0.3665, 0.47, 0.576, 0.661, 0.781, 0.903, 1],
+  [0.1985, 0.2905, 0.3995, 0.4905, 0.5975, 0.6825, 0.803, 0.9035, 1],
+  [0.207, 0.3205, 0.4105, 0.519, 0.5895, 0.6795, 0.7825, 0.916, 1],
+].forEach(cum => SIZE_HIDDEN.push({ p: cumToP(cum), eff: additive(SUBTLE_LE) }));
+// size0: imprinted, only the copy from the mother (position 0) counts
+SIZE_HIDDEN.push({ p: cumToP([0.4945, 1]), eff: (a, b) => a === 1 ? LN(1.06) : 0 });
+// size1: mostly dominant
+SIZE_HIDDEN.push({ p: cumToP([0.425, 1]), eff: (a, b) => (a === 1 && b === 1) ? LN(1.1) : (a === 1 || b === 1) ? LN(1.08) : 0 });
+// size2: incomplete dominant
+SIZE_HIDDEN.push({ p: cumToP([0.323, 0.5685, 0.787, 1]), eff: additive([0, LN(1.002), LN(1.03), LN(1.05)]) });
+// size3: imprinted, only the copy from the father (position 1) counts
+SIZE_HIDDEN.push({ p: cumToP([0.7875, 1]), eff: (a, b) => b === 1 ? -LN(1.08) : 0 });
+// size4: semi-recessive, smaller^0.4 * larger^1.6
+const S4 = [0, -LN(1.005), -LN(1.02), -LN(1.05), -LN(1.06)];
+SIZE_HIDDEN.push({ p: cumToP([0.47, 0.689, 0.8745, 0.9495, 1]), eff: (a, b) => 0.4 * Math.min(S4[a], S4[b]) + 1.6 * Math.max(S4[a], S4[b]) });
+
+const LCORL = { p: [0.9245, 0.0755], eff: (a, b) => (a + b) * LN(1.03) };
+const HMGA2 = { p: [0.9865, 0.0135], eff: (a, b) => (a && b) ? LN(0.81) : (a || b) ? LN(0.94) : 0 };
+const KNOWN_PAIR = { NN: [0, 0], NX: [0, 1], XX: [1, 1] };
+
+function pairsOf(locus) {
+  const out = [];
+  for (let a = 0; a < locus.p.length; a++) for (let b = 0; b < locus.p.length; b++) {
+    const pr = locus.p[a] * locus.p[b];
+    if (pr > 0) out.push([a, b, pr, locus.eff(a, b)]);
+  }
+  return out;
+}
+function effTable(locus) {
+  const n = locus.p.length, t = new Float64Array(16 * 16);
+  for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) t[a * 16 + b] = locus.eff(a, b);
+  return t;
+}
+const ALL_LOCI = [LCORL, HMGA2, ...SIZE_HIDDEN];
+const NL = ALL_LOCI.length;
+const EFF = ALL_LOCI.map(effTable);
+const PRIOR_PAIRS = ALL_LOCI.map(pairsOf);
+const NOISE_SD = 0.02 / Math.sqrt(12);
+
+// Spread of log genetic size in wild horses
+const POP_SD = (() => {
+  let v = NOISE_SD * NOISE_SD + 0.01 * 0.01;
+  for (const pr of PRIOR_PAIRS) {
+    let m = 0, m2 = 0;
+    for (const [, , p, e] of pr) { m += p * e; m2 += p * e * e; }
+    v += m2 - m * m;
+  }
+  return Math.sqrt(v);
+})();
+
+function tiltedWeights(pairs, lambda) {
+  let ref = pairs[0][3];
+  for (const q of pairs) ref = lambda > 0 ? Math.max(ref, q[3]) : Math.min(ref, q[3]);
+  return pairs.map(q => q[2] * Math.exp(lambda * (q[3] - ref)));
+}
+function tiltedMean(pairs, lambda) {
+  const w = tiltedWeights(pairs, lambda);
+  let s = 0, se = 0;
+  for (let i = 0; i < pairs.length; i++) { s += w[i]; se += w[i] * pairs[i][3]; }
+  return se / s;
+}
+
+/* Posterior samples of one parent's size genes (LCORL, HMGA2 + hidden).
+   With a known height, sample from an exponentially tilted prior aimed at that
+   height, then importance-weight back to the exact posterior. */
+function sampleSizeGenes(par, sexLn, rnd, M) {
+  const pairsList = ALL_LOCI.map((L, j) => {
+    if (j === 0 && par.lcorl !== '?') { const k = KNOWN_PAIR[par.lcorl]; return [[k[0], k[1], 1, L.eff(k[0], k[1])]]; }
+    if (j === 1 && par.hmga !== '?') { const k = KNOWN_PAIR[par.hmga]; return [[k[0], k[1], 1, L.eff(k[0], k[1])]]; }
+    return PRIOR_PAIRS[j];
+  });
+  let target = null, lambda = 0, lnA = 0, m0 = 0;
+  if (par.cm) {
+    lnA = LN(par.cm / 132);
+    // Unknown grandmother: assume she was mostly like this horse (bred lines run true to size),
+    // with room for a wild-spawn mother (scale 1)
+    m0 = 0.85 * lnA;
+    const sm = 0.6 * POP_SD;
+    const t = (lnA - 0.3 * m0) / 0.7 - sexLn;
+    const s = Math.sqrt(NOISE_SD ** 2 + (0.3 * sm / 0.7) ** 2 + (0.006 / 0.7) ** 2);
+    target = { t, s };
+    // Aim the proposal at a Gaussian estimate of the posterior mean, so it isn't narrower than the posterior
+    let pm = 0, pv = 0;
+    for (const pr of pairsList) {
+      let m = 0, m2 = 0;
+      for (const q of pr) { m += q[2] * q[3]; m2 += q[2] * q[3] * q[3]; }
+      pm += m; pv += m2 - m * m;
+    }
+    const aim = pv > 0 ? (pm / pv + t / (s * s)) / (1 / pv + 1 / (s * s)) : t;
+    let lo = -4000, hi = 4000;
+    for (let it = 0; it < 90; it++) {
+      const mid = (lo + hi) / 2;
+      const m = pairsList.reduce((acc, pr) => acc + tiltedMean(pr, mid), 0);
+      if (m < aim) lo = mid; else hi = mid;
+    }
+    lambda = (lo + hi) / 2;
+  }
+  const cdfs = pairsList.map(pr => toCdf(tiltedWeights(pr, lambda)));
+  const geno = new Uint8Array(M * NL * 2);
+  const lh = new Float64Array(M);
+  const logw = new Float64Array(M);
+  for (let m = 0; m < M; m++) {
+    let sum = 0;
+    for (let j = 0; j < NL; j++) {
+      const q = pairsList[j][drawCdf(cdfs[j], rnd())];
+      geno[(m * NL + j) * 2] = q[0];
+      geno[(m * NL + j) * 2 + 1] = q[1];
+      sum += q[3];
+    }
+    lh[m] = sum;
+    logw[m] = target ? -((sum - target.t) ** 2) / (2 * target.s ** 2) - lambda * sum : 0;
+  }
+  // Systematic resampling
+  let mx = -Infinity; for (let m = 0; m < M; m++) mx = Math.max(mx, logw[m]);
+  const w = new Float64Array(M); let sw = 0, sw2 = 0;
+  for (let m = 0; m < M; m++) { w[m] = Math.exp(logw[m] - mx); sw += w[m]; sw2 += w[m] * w[m]; }
+  const ess = sw * sw / sw2;
+  const idx = new Uint32Array(M);
+  if (ess < 25) { for (let m = 0; m < M; m++) idx[m] = m; }
+  else {
+    const step = sw / M; let u = rnd() * step, c = w[0], k = 0;
+    for (let m = 0; m < M; m++) { while (u > c && k < M - 1) { k++; c += w[k]; } idx[m] = k; u += step; }
+  }
+  // Adult scale of each candidate (used for the mother's pull on foal size)
+  const adult = new Float64Array(M);
+  for (let m = 0; m < M; m++) adult[m] = par.cm ? par.cm / 132 : Math.exp(0.7 * (sexLn + lh[m]));
+  // How well the genes we found can explain the height that was entered
+  let fit = 0;
+  if (par.cm) {
+    let ml = 0; for (let m = 0; m < M; m++) ml += lh[idx[m]];
+    ml /= M;
+    fit = lnA - (0.7 * (sexLn + ml) + 0.3 * m0);
+  }
+  return { geno, lh, idx, adult, ess, lambda, fit };
+}
+
+/* ---------- Colour genes (book page 3-4) ---------- */
+const COLOR_GENES = [
+  { id: 'ext', name: 'Extension', alleles: [['e', .5], ['E', .5]] },
+  { id: 'ago', name: 'Agouti', alleles: [['a', .375], ['A', .625]] },
+  { id: 'dun', name: 'Dun', alleles: [['nd2', .9], ['nd1', .02], ['D', .08]] },
+  { id: 'gray', name: 'Gray', alleles: [['g', .95], ['G', .05]] },
+  { id: 'cream', name: 'Cream', alleles: [['+', .938], ['Cr', .03125], ['prl', .02875], ['sn', .002]] },
+  { id: 'silver', name: 'Silver Dapple', alleles: [['z', .97], ['Z', .03]] },
+  { id: 'champ', name: 'Champagne', alleles: [['ch', .99], ['Ch', .01]] },
+  { id: 'tob', name: 'Tobiano', alleles: [['+', 0], ['To', 0]] },
+  { id: 'kit', name: 'KIT (White)', alleles: [['+', 0], ['W20', 0], ['Sb1', 0], ['Rn', 0], ['W4', 0], ['W5', 0]] },
+  { id: 'frame', name: 'Frame Overo', alleles: [['+', .97], ['O', .03]] },
+  { id: 'mitf', name: 'MITF (Splash)', alleles: [['+', .9], ['SW1', .1]] },
+  { id: 'lp', name: 'Leopard Complex', alleles: [['+', .97], ['Lp', .03]] },
+  { id: 'patn', name: 'Pattern 1', alleles: [['+', .94], ['PATN', .06]] },
+  { id: 'mush', name: 'Mushroom', alleles: [['+', .995], ['mu', .005]] },
+  { id: 'te', name: 'Tiger Eye', alleles: [['+', .98], ['te', .02]] },
+];
+// Tobiano and the other KIT alleles are one gene; this is the wild-horse mix of combined alleles
+const KIT_POP = [
+  ['+', '+', .73], ['+', 'W20', .15], ['To', '+', .04], ['+', 'Sb1', .02],
+  ['To', 'W20', .02], ['+', 'Rn', .03], ['+', 'W4', .005], ['+', 'W5', .005],
+];
+const SIMPLE_COLOR = COLOR_GENES.filter(g => g.id !== 'tob' && g.id !== 'kit');
+const POP_CDF = {};
+for (const g of SIMPLE_COLOR) POP_CDF[g.id] = { labels: g.alleles.map(a => a[0]), cdf: toCdf(g.alleles.map(a => a[1])) };
+
+function kitOptions(to, kit) {
+  const opts = KIT_POP.filter(([t, k]) => (to === '?' || t === to) && (kit === '?' || k === kit));
+  if (opts.length === 0) return { list: [[to === '?' ? '+' : to, kit === '?' ? '+' : kit]], cdf: [1] };
+  return { list: opts.map(o => [o[0], o[1]]), cdf: toCdf(opts.map(o => o[2])) };
+}
+
+function count(arr, v) { return (arr[0] === v ? 1 : 0) + (arr[1] === v ? 1 : 0); }
+const LETHAL_KIT = new Set(['W4', 'W5']);
+
+function coatName(f) {
+  if (count(f.frame, 'O') === 2) return 'Lethal white (overo)';
+  const red = count(f.ext, 'e') === 2;
+  const base = red ? 'chestnut' : (f.ago.includes('A') ? 'bay' : 'black');
+  const cr = count(f.cream, 'Cr'), sn = count(f.cream, 'sn'), prl = count(f.cream, 'prl');
+  const dun = f.dun.includes('D');
+  const champ = f.champ.includes('Ch');
+  const silver = f.silver.includes('Z') && !red;
+  const mush = red && count(f.mush, 'mu') === 2;
+  let name;
+  if (champ) {
+    name = { chestnut: 'gold', bay: 'amber', black: 'classic' }[base] + (cr + sn ? ' cream' : '') + ' champagne' + (dun ? ' dun' : '');
+  } else if (cr + sn >= 2 && !(sn === 1 && cr === 0)) {
+    name = { chestnut: 'cremello', bay: 'perlino', black: 'smoky cream' }[base];
+  } else if (cr === 1 && prl === 1) {
+    name = { chestnut: 'palomino pearl', bay: 'buckskin pearl', black: 'smoky pearl' }[base];
+  } else if (cr === 1) {
+    name = dun ? { chestnut: 'dunalino', bay: 'dunskin', black: 'smoky grullo' }[base]
+               : { chestnut: 'palomino', bay: 'buckskin', black: 'smoky black' }[base];
+  } else {
+    name = dun ? { chestnut: 'red dun', bay: 'bay dun', black: 'grullo' }[base] : (mush ? 'mushroom' : base);
+    if (prl === 2) name = 'pearl ' + name;
+  }
+  if (silver) name = 'silver ' + name;
+  const kits = [f.kit[0][1], f.kit[1][1]];
+  if (kits.includes('W4')) name = 'dominant white';
+  const pat = [];
+  if (f.kit[0][0] === 'To' || f.kit[1][0] === 'To') pat.push('tobiano');
+  if (f.frame.includes('O')) pat.push('frame overo');
+  const sw = count(f.mitf, 'SW1');
+  if (sw) pat.push(sw === 2 ? 'heavy splash' : 'splash');
+  if (kits.includes('Rn')) pat.push('roan');
+  if (kits.includes('Sb1')) pat.push('sabino');
+  if (kits.includes('W5')) pat.push('W5 white');
+  const lp = count(f.lp, 'Lp');
+  if (lp) pat.push(f.patn.includes('PATN') ? (lp === 2 ? 'fewspot leopard' : 'leopard spotted') : (lp === 2 ? 'snowcap appaloosa' : 'blanket appaloosa'));
+  let full = name + (pat.length ? ' ' + pat.join(', ') : '');
+  if (f.gray.includes('G')) full = 'gray (born ' + full + ')';
+  if (count(f.te, 'te') === 2) full += ', tiger eyes';
+  return full.charAt(0).toUpperCase() + full.slice(1);
+}
+
+/* ---------- Derived stats (AbstractHorseGenetic.useGeneticAttributes) ---------- */
+function speedBps(stat) { return (0.1125 + stat * 0.225 / 32) * 42.16; }
+function jumpBlocks(stat) {
+  const x = 0.4 + stat * 0.6 / 32;
+  return -0.1817584952 * x ** 3 + 3.689713992 * x ** 2 + 2.128599134 * x - 0.343930367;
+}
+function tier(stat, kind) {
+  if (kind === 'health') return stat < 9 ? 0 : stat < 15 ? 1 : stat < 20 ? 2 : 3;
+  return stat < 12 ? 0 : stat < 20 ? 1 : stat < 26 ? 2 : 3;
+}
+const SIZE_CLASSES = [
+  { name: 'Miniature', desc: 'too small to ride' },
+  { name: 'Pony-sized', desc: 'rideable, 14.2 hands or less' },
+  { name: 'Horse-sized', desc: 'over 14.2 hands' },
+  { name: 'Large', desc: 'fits two riders' },
+];
+function sizeClass(cm) {
+  const A = cm / 132, kg = 362.9 * A * A * A;
+  if (kg < 317.5) return 0;
+  if (kg > 635) return 3;
+  return Math.round(cm / 2.54) <= 58 ? 1 : 2;
+}
+
+/* ---------- Main simulation ---------- */
+function simulate(P, N = 40000) {
+  const rnd = mulberry32(hashStr(JSON.stringify(P)));
+  const M = 4000;
+  const damS = sampleSizeGenes(P.dam, LN(0.99), rnd, M);
+  const sireS = sampleSizeGenes(P.sire, LN(1.01), rnd, M);
+
+  const catCdf = CATS.map(c => toCdf(conv(GAMETE[P.dam.stats[c]], GAMETE[P.sire.stats[c]])));
+
+  // Immune: 16 loci with 16 alleles; P(same allele from both sides) = f + (1-f)/16
+  const f = P.kinship, pHet = 1 - (f + (1 - f) / 16);
+  const binom = []; { let c = 1; for (let k = 0; k <= 16; k++) { binom.push(c * pHet ** k * (1 - pHet) ** (16 - k)); c = c * (16 - k) / (k + 1); } }
+  const immCdf = toCdf(binom);
+
+  // Colour inheritance setup
+  const col = { dam: P.dam.colour, sire: P.sire.colour };
+  const kitOpt = {};
+  for (const who of ['dam', 'sire']) kitOpt[who] = [0, 1].map(i => kitOptions(col[who].tob[i], col[who].kit[i]));
+  function pass(who, id, pos) {
+    const v = col[who][id][pos];
+    if (v !== '?') return v;
+    const pc = POP_CDF[id];
+    return pc.labels[drawCdf(pc.cdf, rnd())];
+  }
+  function passColour(who) {
+    const out = {};
+    const c = rnd() < 0.5 ? 0 : 1;
+    for (const g of SIMPLE_COLOR) out[g.id] = pass(who, g.id, g.id === 'ext' ? c : (rnd() < 0.5 ? 0 : 1));
+    const kp = rnd() < 0.03 ? 1 - c : c;  // KIT sits ~3 cM from Extension
+    const ko = kitOpt[who][kp];
+    out.kit = ko.list[drawCdf(ko.cdf, rnd())];
+    return out;
+  }
+
+  const nameIndex = new Map(), names = [];
+  const coatCache = new Map();
+
+  const key = new Int16Array(N);
+  const cm = new Float32Array(N), kg = new Float32Array(N), hp = new Float32Array(N);
+  const spd = new Float32Array(N), jmp = new Float32Array(N);
+  const cats = new Uint8Array(N * CATS.length);
+  const imm = new Uint8Array(N), lco = new Uint8Array(N), hmg = new Uint8Array(N);
+  const coat = new Uint16Array(N), flags = new Uint8Array(N);
+  const tc = new Uint8Array(N), ts = new Uint8Array(N), tj = new Uint8Array(N), th = new Uint8Array(N);
+  let noFoal = 0, lethalWhite = 0;
+
+  for (let n = 0; n < N; n++) {
+    // Colour first: some combinations mean no foal is born at all
+    const cd = passColour('dam'), cs = passColour('sire');
+    if (LETHAL_KIT.has(cd.kit[1]) && LETHAL_KIT.has(cs.kit[1])) { noFoal++; key[n] = -2; continue; }
+    const fc = { kit: [cd.kit, cs.kit] };
+    let ck = cd.kit[0] + cd.kit[1] + '|' + cs.kit[0] + cs.kit[1];
+    for (const g of SIMPLE_COLOR) { fc[g.id] = [cd[g.id], cs[g.id]]; ck += '|' + cd[g.id] + '/' + cs[g.id]; }
+    let cinfo = coatCache.get(ck);
+    if (!cinfo) {
+      const nm = coatName(fc);
+      if (!nameIndex.has(nm)) { nameIndex.set(nm, names.length); names.push(nm); }
+      cinfo = {
+        id: nameIndex.get(nm),
+        lethal: count(fc.frame, 'O') === 2,
+        gray: count(fc.gray, 'G'),
+        white: fc.kit[0][1] === 'W4' || fc.kit[1][1] === 'W4',
+        silver: count(fc.silver, 'Z'),
+        lp: count(fc.lp, 'Lp'),
+      };
+      coatCache.set(ck, cinfo);
+    }
+    if (cinfo.lethal) { lethalWhite++; key[n] = -1; continue; }
+
+    // Size
+    const di = damS.idx[(rnd() * M) | 0], si = sireS.idx[(rnd() * M) | 0];
+    let lh = 0, lc = 0, hm = 0;
+    for (let j = 0; j < NL; j++) {
+      const a = damS.geno[(di * NL + j) * 2 + (rnd() < 0.5 ? 0 : 1)];
+      const b = sireS.geno[(si * NL + j) * 2 + (rnd() < 0.5 ? 0 : 1)];
+      lh += EFF[j][a * 16 + b];
+      if (j === 0) lc = a + b; else if (j === 1) hm = a + b;
+    }
+    const male = rnd() < 0.5;
+    const noise = 1 + 0.01 * (((rnd() * 64) | 0) - 32) / 32;
+    const G = Math.exp((male ? LN(1.01) : LN(0.99)) + lh) * noise;
+    const A = Math.pow(G, 0.7) * Math.pow(damS.adult[di], 0.3);
+
+    // Stat genes
+    const base = n * CATS.length;
+    for (let c = 0; c < CATS.length; c++) cats[base + c] = drawCdf(catCdf[c], rnd());
+    const diffs = drawCdf(immCdf, rnd());
+    const immune = 7 * Math.min(1, diffs / 12);
+    const hg = cats[base] + cats[base + 1] + cats[base + 2];
+    const ath = (cats[base + 3] + cats[base + 4]) / 2;
+    const sStat = cats[base + 5] + cats[base + 6] + cats[base + 7] + ath;
+    const jStat = cats[base + 8] + cats[base + 9] + cats[base + 10] + ath;
+
+    // Colour-linked health effects
+    let loss = 0;
+    if (cinfo.gray) loss += Math.max(0, cinfo.gray - (rnd() < 0.25 ? 1 : 0) - (cinfo.white ? 1.5 : 0));
+    loss += cinfo.silver === 2 ? 1 : cinfo.silver === 1 ? 0.5 : 0;
+    if (cinfo.lp && rnd() < 0.0625) loss += 0.5 * cinfo.lp;
+
+    const maxHp = Math.max(4, (15 + 0.5 * (hg + immune)) * Math.min(A / 1.1, 1.5) - loss);
+
+    cm[n] = 132 * A;
+    kg[n] = 362.9 * A * A * A;
+    hp[n] = maxHp;
+    spd[n] = speedBps(sStat);
+    jmp[n] = jumpBlocks(jStat);
+    imm[n] = judgeImmune(immune);
+    lco[n] = lc; hmg[n] = hm;
+    coat[n] = cinfo.id;
+    flags[n] = (cinfo.lp === 2 ? 1 : 0) | (loss > 0 ? 2 : 0);
+    tc[n] = sizeClass(cm[n]); ts[n] = tier(sStat, 'speed'); tj[n] = tier(jStat, 'jump'); th[n] = tier(hg, 'health');
+    key[n] = 0;
+  }
+
+  // ---- Group foals into outcomes ----
+  // Use the coarsest grouping that still gives three real outcomes (each at least 4%),
+  // so the three cards cover as many foals as possible.
+  const KEYINGS = [
+    n => tc[n] * 64,
+    n => tc[n] * 64 + ts[n] * 16,
+    n => tc[n] * 64 + ts[n] * 16 + th[n],
+    n => tc[n] * 64 + ts[n] * 16 + tj[n] * 4 + th[n],
+  ];
+  let viable = 0;
+  for (let n = 0; n < N; n++) if (key[n] >= 0) viable++;
+  let groups = null, keyingUsed = 0;
+  for (let k = 0; k < KEYINGS.length; k++) {
+    const g = new Map();
+    for (let n = 0; n < N; n++) {
+      if (key[n] < 0) continue;
+      const kk = KEYINGS[k](n);
+      let arr = g.get(kk);
+      if (!arr) { arr = []; g.set(kk, arr); }
+      arr.push(n);
+    }
+    groups = g; keyingUsed = k;
+    const big = [...g.values()].filter(a => a.length / viable >= 0.04).length;
+    if (big >= 3) break;
+  }
+  const pct = (arr, q) => arr[Math.min(arr.length - 1, Math.floor(q * (arr.length - 1) + 0.5))];
+  function summary(ix, src) {
+    const v = Array.from(ix, i => src[i]).sort((a, b) => a - b);
+    return { med: pct(v, 0.5), lo: pct(v, 0.1), hi: pct(v, 0.9) };
+  }
+  function mode(ix, src) {
+    const c = new Map();
+    for (const i of ix) c.set(src[i], (c.get(src[i]) || 0) + 1);
+    let best = null, bn = -1;
+    for (const [k, v] of c) if (v > bn) { best = k; bn = v; }
+    return { value: best, share: bn / ix.length };
+  }
+  const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length);
+  const top = sorted.slice(0, 3).filter(([, ix]) => ix.length / viable >= 0.01).map(([k, ix]) => {
+    const book = CATS.map((c, ci) => {
+      const cnt = [0, 0, 0, 0, 0];
+      for (const i of ix) cnt[judge(cats[i * CATS.length + ci])]++;
+      return cnt.indexOf(Math.max(...cnt));
+    });
+    let blind = 0;
+    for (const i of ix) if (flags[i] & 1) blind++;
+    return {
+      share: ix.length / viable,
+      cls: tc[ix[0]],
+      speedTier: mode(ix, ts).value, jumpTier: mode(ix, tj).value, healthTier: mode(ix, th).value,
+      cm: summary(ix, cm), kg: summary(ix, kg), hp: summary(ix, hp),
+      spd: summary(ix, spd), jmp: summary(ix, jmp),
+      book, immune: mode(ix, imm), lcorl: mode(ix, lco), hmga: mode(ix, hmg),
+      blind: blind / ix.length,
+    };
+  });
+
+  const sizeShare = [0, 0, 0, 0];
+  const tierShare = { speed: [0, 0, 0, 0], jump: [0, 0, 0, 0], health: [0, 0, 0, 0] };
+  const lcoShare = [0, 0, 0], hmgShare = [0, 0, 0];
+  const coatCount = new Map();
+  let blind = 0;
+  const allImm = [0, 0, 0, 0];
+  const allIx = [];
+  for (let n = 0; n < N; n++) {
+    if (key[n] < 0) continue;
+    allIx.push(n);
+    sizeShare[tc[n]]++;
+    tierShare.speed[ts[n]]++; tierShare.jump[tj[n]]++; tierShare.health[th[n]]++;
+    lcoShare[lco[n]]++; hmgShare[hmg[n]]++;
+    coatCount.set(coat[n], (coatCount.get(coat[n]) || 0) + 1);
+    if (flags[n] & 1) blind++;
+    allImm[imm[n]]++;
+  }
+  const coats = [...coatCount.entries()].sort((a, b) => b[1] - a[1]).map(([id, c]) => ({ name: names[id], share: c / viable }));
+  const norm = a => a.map(c => c / viable);
+
+  return {
+    N, viable, top, keyingUsed,
+    other: 1 - top.reduce((s, t) => s + t.share, 0),
+    groupsCount: groups.size,
+    sizeShare: norm(sizeShare),
+    tierShare: { speed: norm(tierShare.speed), jump: norm(tierShare.jump), health: norm(tierShare.health) },
+    lcoShare: norm(lcoShare), hmgShare: norm(hmgShare),
+    fit: { dam: damS.fit, sire: sireS.fit },
+    coats, coatNames: names,
+    noFoal: noFoal / N, lethalWhite: lethalWhite / N, blind: blind / viable,
+    immune: allImm.map(c => c / viable),
+    all: { cm: summary(allIx, cm), hp: summary(allIx, hp), spd: summary(allIx, spd), jmp: summary(allIx, jmp) },
+    debug: { damEss: damS.ess, sireEss: sireS.ess },
+  };
+}
+</script>
+
+<script>
+/* ===================== Page ===================== */
+const GROUPS = [
+  { key: 'health', label: 'Health', subs: [['lung', 'Lung health'], ['gut', 'Gut health'], ['hoof', 'Hoof health']] },
+  { key: 'ath', label: 'Speed and Jumping', subs: [['athl', 'Athleticism'], ['energy', 'Energy']] },
+  { key: 'speed', label: 'Speed', subs: [['quick', 'Quickness'], ['stride', 'Stride'], ['sconf', 'Conformation']] },
+  { key: 'jump', label: 'Jump Power', subs: [['bascule', 'Bascule'], ['agility', 'Agility'], ['jconf', 'Conformation']] },
+];
+const PARENTS = [
+  { p: 'dam', title: 'Mare', role: 'Dam · the mother', sym: '♀' },
+  { p: 'sire', title: 'Stallion', role: 'Sire · the father', sym: '♂' },
+];
+
+/* Pixel icons drawn from tiny maps */
+function pixel(map, color) {
+  const rows = map.trim().split('\n').map(r => r.trim());
+  const w = rows[0].length, h = rows.length;
+  let rects = '';
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch !== '.') rects += `<rect x="${x}" y="${y}" width="1.02" height="1.02"/>`; }));
+  return `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true" shape-rendering="crispEdges" style="fill:${color}">${rects}</svg>`;
+}
+const ICON = {
+  heart: `
+    .XX.XX.
+    XXXXXXX
+    XXXXXXX
+    XXXXXXX
+    .XXXXX.
+    ..XXX..
+    ...X...`,
+  speed: `
+    X..X...
+    .X..X..
+    ..X..X.
+    ...X..X
+    ..X..X.
+    .X..X..
+    X..X...`,
+  jump: `
+    ...X...
+    ..XXX..
+    .XXXXX.
+    XXXXXXX
+    ..XXX..
+    ..XXX..
+    ..XXX..`,
+  height: `
+    XXXXXXX
+    ...X...
+    ...X...
+    ...X...
+    ...X...
+    ...X...
+    XXXXXXX`,
+  weight: `
+    ..XXX..
+    ..X.X..
+    .XXXXX.
+    XXXXXXX
+    XXXXXXX
+    XXXXXXX
+    XXXXXXX`,
+  shield: `
+    XXXXXXX
+    XXXXXXX
+    XXXXXXX
+    XXXXXXX
+    .XXXXX.
+    ..XXX..
+    ...X...`,
+  horseshoe: `
+    XX...XX
+    XX...XX
+    XX...XX
+    XX...XX
+    XXX.XXX
+    .XXXXX.
+    ..XXX..`,
+};
+document.getElementById('logo').innerHTML = pixel(ICON.horseshoe, 'var(--leather)');
+
+const $ = id => document.getElementById(id);
+function ratingOptions(sel) {
+  return RATINGS.map(r => `<option value="${r}"${r === sel ? ' selected' : ''}>${r}</option>`).join('');
+}
+
+function buildParent({ p, title, role, sym }) {
+  const groupsHtml = GROUPS.map(g => `
+    <div class="row">
+      <label for="${p}-${g.key}">${g.label}</label>
+      <div class="ctl">
+        <select id="${p}-${g.key}" data-group="${g.key}" data-parent="${p}">
+          <option value="mixed" disabled hidden>Mixed</option>${ratingOptions('Average')}
+        </select>
+        <button type="button" class="split" aria-expanded="false" aria-controls="${p}-${g.key}-subs" data-split="${p}-${g.key}">Per line</button>
+      </div>
+    </div>
+    <div class="subs" id="${p}-${g.key}-subs" hidden>
+      ${g.subs.map(([k, lbl]) => `
+        <div class="row">
+          <label for="${p}-${k}">${lbl}</label>
+          <div class="ctl"><select id="${p}-${k}" data-sub="${g.key}" data-parent="${p}">${ratingOptions('Average')}</select></div>
+        </div>`).join('')}
+    </div>`).join('');
+
+  $(p + '-panel').innerHTML = `
+    <div class="parent-head">
+      <h2 id="${p}-title"><span class="sex" aria-hidden="true">${sym}</span>${title}</h2>
+      <span class="role">${role}</span>
+    </div>
+    <div class="block">
+      <div class="block-title">Size <span class="src">inventory screen + guidebook page 4</span></div>
+      <div class="row">
+        <label for="${p}-height">Height</label>
+        <div class="ctl"><input type="text" id="${p}-height" inputmode="decimal" autocomplete="off" placeholder="e.g. 14.2 or 147 cm"></div>
+      </div>
+      <p class="hint" id="${p}-height-hint">Optional. Shown when you open the horse's inventory.</p>
+      <div class="row">
+        <label for="${p}-lcorl">LCORL</label>
+        <div class="ctl"><select id="${p}-lcorl">
+          <option value="NN">Normal/Normal</option>
+          <option value="NX">Normal/Large</option>
+          <option value="XX">Large/Large</option>
+          <option value="?">Not checked</option>
+        </select></div>
+      </div>
+      <div class="row">
+        <label for="${p}-hmga">HMGA2</label>
+        <div class="ctl"><select id="${p}-hmga">
+          <option value="NN">Normal/Normal</option>
+          <option value="NX">Normal/Small</option>
+          <option value="XX">Small/Small</option>
+          <option value="?">Not checked</option>
+        </select></div>
+      </div>
+    </div>
+    <div class="block">
+      <div class="block-title">Physical examination <span class="src">guidebook pages 1–2</span></div>
+      ${groupsHtml}
+    </div>`;
+}
+PARENTS.forEach(buildParent);
+
+/* Colour gene table */
+function alleleOptions(g) {
+  return '<option value="?">?</option>' + g.alleles.map(([a]) => `<option value="${a}">${a}</option>`).join('');
+}
+$('gene-table').querySelector('tbody').innerHTML = COLOR_GENES.map(g => `
+  <tr>
+    <th scope="row">${g.name}</th>
+    ${['dam', 'sire'].map(p => `<td><div class="pair">
+      <select id="${p}-c-${g.id}-0" aria-label="${p === 'dam' ? 'Mare' : 'Stallion'} ${g.name}, first copy">${alleleOptions(g)}</select>
+      <span>/</span>
+      <select id="${p}-c-${g.id}-1" aria-label="${p === 'dam' ? 'Mare' : 'Stallion'} ${g.name}, second copy">${alleleOptions(g)}</select>
+    </div></td>`).join('')}
+  </tr>`).join('');
+
+/* Group <-> per-line syncing */
+function syncGroup(p, gk) {
+  const g = GROUPS.find(x => x.key === gk);
+  const vals = g.subs.map(([k]) => $(`${p}-${k}`).value);
+  const sel = $(`${p}-${gk}`);
+  const same = vals.every(v => v === vals[0]);
+  sel.value = same ? vals[0] : 'mixed';
+  sel.classList.toggle('mixed', !same);
+}
+function setSplit(id, open) {
+  const btn = document.querySelector(`[data-split="${id}"]`);
+  btn.setAttribute('aria-expanded', String(open));
+  $(id + '-subs').hidden = !open;
+}
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.group) {
+    const g = GROUPS.find(x => x.key === t.dataset.group);
+    g.subs.forEach(([k]) => { $(`${t.dataset.parent}-${k}`).value = t.value; });
+    t.classList.remove('mixed');
+  } else if (t.dataset.sub) {
+    syncGroup(t.dataset.parent, t.dataset.sub);
+  }
+  markStale();
+});
+document.addEventListener('input', e => {
+  if (e.target.id && e.target.id.endsWith('-height')) { updateHeightHint(e.target.id.split('-')[0]); markStale(); }
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-split]');
+  if (!b) return;
+  setSplit(b.dataset.split, b.getAttribute('aria-expanded') !== 'true');
+});
+
+/* Height parsing: 14.2 = 14 hands 2 inches; values of 30+ or with "cm" are centimetres */
+function parseHeight(raw) {
+  const s = (raw || '').trim().toLowerCase();
+  if (!s) return { cm: null };
+  const num = parseFloat(s.replace(',', '.').replace(/[^0-9.]/g, ''));
+  if (!isFinite(num)) return { error: 'Type a height like 14.2 (hands) or 147 cm.' };
+  let cm;
+  if (s.includes('cm') || num >= 30) cm = num;
+  else {
+    const hands = Math.floor(num + 1e-9);
+    const inch = Math.round((num - hands) * 10);
+    if (inch > 3) return { error: 'Hands go from .0 to .3 (14.3 is followed by 15.0).' };
+    cm = (hands * 4 + inch) * 2.54;
+  }
+  if (cm < 60 || cm > 230) return { error: 'That height is outside what the mod can produce.' };
+  return { cm };
+}
+function fmtHands(cm) { const inch = Math.round(cm / 2.54); return `${Math.floor(inch / 4)}.${inch % 4}`; }
+function updateHeightHint(p) {
+  const r = parseHeight($(p + '-height').value), h = $(p + '-height-hint');
+  h.classList.toggle('err', !!r.error);
+  if (r.error) h.textContent = r.error;
+  else if (r.cm) h.textContent = `Reads as ${fmtHands(r.cm)} hands, ${Math.round(r.cm)} cm.`;
+  else h.textContent = 'Optional. Shown when you open the horse\'s inventory.';
+}
+
+/* Read / write the whole form */
+function readInputs() {
+  const P = { kinship: parseFloat($('related').value) };
+  for (const { p } of PARENTS) {
+    const h = parseHeight($(p + '-height').value);
+    const stats = {}; CATS.forEach(c => stats[c] = $(`${p}-${c}`).value);
+    const colour = {};
+    COLOR_GENES.forEach(g => colour[g.id] = [$(`${p}-c-${g.id}-0`).value, $(`${p}-c-${g.id}-1`).value]);
+    P[p] = { cm: h.cm ? Math.round(h.cm * 10) / 10 : null, lcorl: $(p + '-lcorl').value, hmga: $(p + '-hmga').value, stats, colour };
+  }
+  return P;
+}
+function writeParent(p, d) {
+  $(p + '-height').value = d.height || '';
+  $(p + '-lcorl').value = d.lcorl; $(p + '-hmga').value = d.hmga;
+  CATS.forEach(c => { $(`${p}-${c}`).value = d.stats[c]; });
+  COLOR_GENES.forEach(g => { const v = d.colour[g.id] || ['?', '?']; $(`${p}-c-${g.id}-0`).value = v[0]; $(`${p}-c-${g.id}-1`).value = v[1]; });
+  GROUPS.forEach(g => {
+    syncGroup(p, g.key);
+    setSplit(`${p}-${g.key}`, $(`${p}-${g.key}`).value === 'mixed');
+  });
+  updateHeightHint(p);
+}
+function snapshotParent(p) {
+  const stats = {}; CATS.forEach(c => stats[c] = $(`${p}-${c}`).value);
+  const colour = {}; COLOR_GENES.forEach(g => colour[g.id] = [$(`${p}-c-${g.id}-0`).value, $(`${p}-c-${g.id}-1`).value]);
+  return { height: $(p + '-height').value, lcorl: $(p + '-lcorl').value, hmga: $(p + '-hmga').value, stats, colour };
+}
+const allAvg = () => Object.fromEntries(CATS.map(c => [c, 'Average']));
+const EXAMPLE = {
+  dam: {
+    height: '14.1', lcorl: 'NX', hmga: 'NN',
+    stats: { ...allAvg(), stride: 'Good', agility: 'Good' },
+    colour: { ext: ['e', 'E'], ago: ['A', 'A'], dun: ['nd2', 'nd2'], gray: ['g', 'g'], cream: ['+', '+'], silver: ['z', 'z'], champ: ['ch', 'ch'], tob: ['+', '+'], kit: ['+', '+'], frame: ['+', '+'], mitf: ['SW1', 'SW1'], lp: ['+', '+'], patn: ['+', '+'], mush: ['+', '+'], te: ['+', '+'] },
+  },
+  sire: {
+    height: '15.2', lcorl: 'NX', hmga: 'NN',
+    stats: { lung: 'Good', gut: 'Average', hoof: 'Good', athl: 'Good', energy: 'Average', quick: 'Good', stride: 'Good', sconf: 'Average', bascule: 'Average', agility: 'Average', jconf: 'Poor' },
+    colour: { ext: ['E', 'e'], ago: ['A', 'a'], dun: ['D', 'nd2'], gray: ['g', 'g'], cream: ['Cr', '+'], silver: ['z', 'z'], champ: ['ch', 'ch'], tob: ['To', '+'], kit: ['+', '+'], frame: ['+', '+'], mitf: ['+', '+'], lp: ['+', '+'], patn: ['+', '+'], mush: ['+', '+'], te: ['+', '+'] },
+  },
+};
+const BLANK = { height: '', lcorl: 'NN', hmga: 'NN', stats: allAvg(), colour: {} };
+
+/* Rendering */
+const TIER_WORDS = {
+  speed: ['Slow', 'Average speed', 'Fast', 'Very fast'],
+  jump: ['Weak jumper', 'Average jumper', 'Good jumper', 'Excellent jumper'],
+  health: ['Frail', 'Average health', 'Healthy', 'Very healthy'],
+};
+const RANK = ['Most likely', 'Second most likely', 'Third most likely'];
+const GENO = { lcorl: ['Normal/Normal', 'Normal/Large', 'Large/Large'], hmga: ['Normal/Normal', 'Normal/Small', 'Small/Small'] };
+function fmtPct(x) {
+  if (x <= 0) return '0%';
+  if (x < 0.005) return '<1%';
+  if (x > 0.995 && x < 1) return '>99%';
+  return Math.round(x * 100) + '%';
+}
+function range(s, f, unit) {
+  const lo = f(s.lo), hi = f(s.hi);
+  return lo === hi ? '' : `<span class="rng">usually ${lo}–${hi}${unit}</span>`;
+}
+const one = v => v.toFixed(1);
+
+function renderCard(t, i, n) {
+  const cls = SIZE_CLASSES[t.cls];
+  const hearts = t.hp.med / 2;
+  const bookLine = (label, ci) => `<div class="bl"><span>${label}</span><span>${RATINGS[t.book[ci]]}</span></div>`;
+  const notes = [];
+  if (t.blind > 0.01) notes.push(`<p class="page-note alert">${fmtPct(t.blind)} of these have night blindness (Lp/Lp): very slow in the dark.</p>`);
+  if (t.immune.value < 3) notes.push(`<p class="page-note alert">Immune system likely ${IMMUNE_LABELS[t.immune.value].toLowerCase()}, which lowers max health.</p>`);
+  return `
+  <article class="page" aria-label="${RANK[i]} foal">
+    <div class="page-top">
+      <div>
+        <div class="rank">${RANK[i]}</div>
+        <div class="pct">${fmtPct(t.share).replace('%', '<small>%</small>')}</div>
+      </div>
+      <div class="page-no">Page ${i + 1} of ${n}</div>
+    </div>
+    <div class="chance-bar" aria-hidden="true"><i style="width:${Math.max(2, t.share * 100)}%"></i></div>
+    <h3>${cls.name} foal<span class="sub">${fmtHands(t.cm.med)} hands as an adult · ${cls.desc}</span></h3>
+    <div class="chips">
+      <span class="chip t${t.speedTier}">${TIER_WORDS.speed[t.speedTier]}</span>
+      <span class="chip t${t.jumpTier}">${TIER_WORDS.jump[t.jumpTier]}</span>
+      <span class="chip t${t.healthTier}">${TIER_WORDS.health[t.healthTier]}</span>
+    </div>
+    <dl class="stats">
+      <div><span class="ico">${pixel(ICON.height, 'var(--parchment-muted)')}</span><dt>Height</dt><dd><b>${fmtHands(t.cm.med)} hh</b> · ${Math.round(t.cm.med)} cm${range(t.cm, fmtHands, ' hh')}</dd></div>
+      <div><span class="ico">${pixel(ICON.weight, 'var(--parchment-muted)')}</span><dt>Weight</dt><dd><b>${Math.round(t.kg.med)} kg</b></dd></div>
+      <div><span class="ico">${pixel(ICON.heart, 'var(--t0-ink)')}</span><dt>Max health</dt><dd><b>${one(t.hp.med)} HP</b> · ${one(hearts)} hearts${range(t.hp, one, ' HP')}</dd></div>
+      <div><span class="ico">${pixel(ICON.speed, 'var(--parchment-muted)')}</span><dt>Top speed</dt><dd><b>${one(t.spd.med)}</b> blocks/s${range(t.spd, one, '')}</dd></div>
+      <div><span class="ico">${pixel(ICON.jump, 'var(--parchment-muted)')}</span><dt>Jump</dt><dd><b>${one(t.jmp.med)}</b> blocks high${range(t.jmp, one, '')}</dd></div>
+      <div><span class="ico">${pixel(ICON.shield, 'var(--parchment-muted)')}</span><dt>Size genes</dt><dd>LCORL ${GENO.lcorl[t.lcorl.value]}<span class="rng">HMGA2 ${GENO.hmga[t.hmga.value]} · most common combo (${fmtPct(t.lcorl.share)})</span></dd></div>
+    </dl>
+    ${notes.join('')}
+    <details class="book">
+      <summary>What its guidebook would most likely say</summary>
+      <div class="bookpage">
+        <div>
+          <div class="bh">Health</div>
+          ${bookLine('Lung health', 0)}${bookLine('Gut health', 1)}${bookLine('Hoof health', 2)}
+          <div class="bl"><span>Immune system</span><span>${IMMUNE_LABELS[t.immune.value]}</span></div>
+        </div>
+        <div>
+          <div class="bh">Speed and Jumping</div>
+          ${bookLine('Athleticism', 3)}${bookLine('Energy', 4)}
+        </div>
+        <div>
+          <div class="bh">Speed</div>
+          ${bookLine('Quickness', 5)}${bookLine('Stride', 6)}${bookLine('Conformation', 7)}
+        </div>
+        <div>
+          <div class="bh">Jump Power</div>
+          ${bookLine('Bascule', 8)}${bookLine('Agility', 9)}${bookLine('Conformation', 10)}
+        </div>
+      </div>
+    </details>
+  </article>`;
+}
+
+function stackBar(shares, colours, label) {
+  return `<div class="sizebar" role="img" aria-label="${label}">${shares.map((s, i) => s > 0 ? `<i style="width:${s * 100}%;background:${colours[i]}"></i>` : '').join('')}</div>`;
+}
+function oddsLine(labels, shares) {
+  return labels.map((l, i) => shares[i] >= 0.005 ? `${l} ${fmtPct(shares[i])}` : '').filter(Boolean).join(' · ');
+}
+
+function render(R, P) {
+  if (!R.viable || !R.top.length) {
+    $('cards').innerHTML = `<div class="panel"><h3>No foals</h3><p class="hint">Every breeding of this pair fails because both parents carry two copies of dominant white. Pick a different partner.</p></div>`;
+    $('overall').innerHTML = '';
+    $('results-meta').textContent = '';
+    return;
+  }
+  const n = R.top.length;
+  $('cards').innerHTML = R.top.map((t, i) => renderCard(t, i, n)).join('');
+  const grouped = ['size', 'size and speed', 'size, speed and health', 'size, speed, jump and health'][R.keyingUsed];
+  $('results-meta').textContent = (R.other > 0.005
+    ? `Grouped by ${grouped}. The other ${fmtPct(R.other)} of foals fall in smaller groups.`
+    : `Grouped by ${grouped}.`) + ` From ${R.N.toLocaleString()} simulated breedings.`;
+
+  // Size odds
+  const colours = ['var(--size0)', 'var(--size1)', 'var(--size2)', 'var(--size3)'];
+  const sizePanel = `
+    <div class="panel">
+      <h3>Size odds</h3>
+      ${stackBar(R.sizeShare, colours, 'Size class chances')}
+      <ul class="legend">
+        ${SIZE_CLASSES.map((c, i) => `<li><span class="sw" style="background:${colours[i]}"></span><span>${c.name} <span class="desc">${c.desc}</span></span><span class="n">${fmtPct(R.sizeShare[i])}</span></li>`).join('')}
+      </ul>
+      <p class="hint"><b>LCORL:</b> ${oddsLine(GENO.lcorl, R.lcoShare)}<br><b>HMGA2:</b> ${oddsLine(GENO.hmga, R.hmgShare)}</p>
+      <p class="hint">Middle 80% of foals: ${fmtHands(R.all.cm.lo)}–${fmtHands(R.all.cm.hi)} hands, ${one(R.all.hp.lo)}–${one(R.all.hp.hi)} HP.</p>
+    </div>`;
+
+  // Stat odds
+  const tierCol = ['var(--t0-ink)', 'var(--line)', 'var(--size2)', 'var(--t3-bg)'];
+  const statRow = (title, kind, shares, extra) => `
+    <div class="block">
+      <div class="block-title">${title} <span class="src">${extra}</span></div>
+      ${stackBar(shares, tierCol, title + ' chances')}
+      <p class="hint">${oddsLine(TIER_WORDS[kind], shares)}</p>
+    </div>`;
+  const statPanel = `
+    <div class="panel">
+      <h3>Stat odds</h3>
+      ${statRow('Speed', 'speed', R.tierShare.speed, `${one(R.all.spd.lo)}–${one(R.all.spd.hi)} blocks/s`)}
+      ${statRow('Jump', 'jump', R.tierShare.jump, `${one(R.all.jmp.lo)}–${one(R.all.jmp.hi)} blocks`)}
+      ${statRow('Health genes', 'health', R.tierShare.health, 'lung + gut + hoof')}
+    </div>`;
+
+  // Coat odds
+  const anyColour = ['dam', 'sire'].some(p => Object.values(P[p].colour).some(v => v[0] !== '?' || v[1] !== '?'));
+  const topCoats = R.coats.slice(0, 6);
+  const rest = 1 - topCoats.reduce((s, c) => s + c.share, 0);
+  const maxShare = topCoats.length ? topCoats[0].share : 1;
+  const coatPanel = `
+    <div class="panel">
+      <h3>Coat colour odds</h3>
+      ${anyColour ? '' : '<p class="hint">No colour genes entered, so these are wild-horse odds. Add them under Colour genes for a real forecast.</p>'}
+      <ul class="odds">
+        ${topCoats.map(c => `<li><span class="lbl">${c.name}<span class="meter"><i style="width:${(c.share / maxShare) * 100}%"></i></span></span><span class="n">${fmtPct(c.share)}</span></li>`).join('')}
+        ${rest > 0.005 ? `<li><span class="lbl" style="color:var(--muted)">${R.coats.length - topCoats.length} other colours</span><span class="n">${fmtPct(rest)}</span></li>` : ''}
+      </ul>
+    </div>`;
+
+  // Warnings
+  const alerts = [];
+  for (const { p, title } of PARENTS) {
+    const f = R.fit[p];
+    const pron = p === 'sire' ? 'his' : 'her';
+    if (Math.abs(f) > 0.06) alerts.push(`<li>The ${title.toLowerCase()} is ${f > 0 ? 'taller' : 'shorter'} than ${pron} size genes can easily explain. Check ${pron} height and LCORL/HMGA2 results.</li>`);
+  }
+  if (R.noFoal > 0.001) alerts.push(`<li class="danger"><b>${fmtPct(R.noFoal)} of breedings give no foal.</b> Two copies of dominant white (W4 or W5) don't survive, so the mare doesn't get pregnant.</li>`);
+  if (R.lethalWhite > 0.001) alerts.push(`<li class="danger"><b>${fmtPct(R.lethalWhite)} of foals will have lethal white syndrome</b> and die young. Both parents carry frame overo (O). Avoid this pairing.</li>`);
+  if (R.blind > 0.005) alerts.push(`<li>${fmtPct(R.blind)} of foals get night blindness (Lp/Lp) and move very slowly in the dark.</li>`);
+  const lowImm = R.immune[0] + R.immune[1];
+  if (lowImm > 0.05) alerts.push(`<li>${fmtPct(lowImm)} of foals will be inbred (immune system Inbred or worse), costing up to 3.5 HP.</li>`);
+  if (R.sizeShare[0] > 0.005) alerts.push(`<li>${fmtPct(R.sizeShare[0])} of foals will be too small to ride.</li>`);
+  const grayCarrier = ['dam', 'sire'].some(p => P[p].colour.gray.includes('G'));
+  const silverCarrier = ['dam', 'sire'].some(p => P[p].colour.silver.includes('Z'));
+  if (grayCarrier) alerts.push('<li>Gray foals can lose up to 2 HP to melanomas.</li>');
+  if (silverCarrier) alerts.push('<li>Silver dapple foals lose 0.5 HP per copy to eye problems (MCOA).</li>');
+  if (!alerts.length) alerts.push('<li class="ok">No genetic health risks found for this pairing.</li>');
+  const alertPanel = `<div class="panel"><h3>Breeding warnings</h3><ul class="alerts">${alerts.join('')}</ul></div>`;
+
+  $('overall').innerHTML = sizePanel + statPanel + coatPanel + alertPanel;
+}
+
+let lastKey = null;
+function markStale() {
+  const key = JSON.stringify(readInputs());
+  const stale = lastKey !== null && key !== lastKey;
+  $('results').classList.toggle('is-stale', stale);
+  $('status').textContent = stale ? 'Inputs changed. Press Calculate to update.' : '';
+  $('status').classList.toggle('stale', stale);
+}
+function calculate(scroll) {
+  const bad = PARENTS.find(({ p }) => parseHeight($(p + '-height').value).error);
+  if (bad) {
+    $('status').textContent = `Fix the ${bad.title.toLowerCase()}'s height first.`;
+    $('status').classList.add('stale');
+    $(bad.p + '-height').focus();
+    return;
+  }
+  $('status').textContent = 'Calculating…';
+  $('status').classList.remove('stale');
+  setTimeout(() => {
+    const P = readInputs();
+    const R = simulate(P);
+    lastKey = JSON.stringify(P);
+    render(R, P);
+    $('results').classList.remove('is-stale');
+    $('status').textContent = 'Done.';
+    setTimeout(() => { if ($('status').textContent === 'Done.') $('status').textContent = ''; }, 1600);
+    if (scroll) {
+      const top = $('results').getBoundingClientRect().top;
+      if (top > window.innerHeight * 0.6 || top < 0) {
+        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        $('results').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      }
+    }
+  }, 20);
+}
+
+$('form').addEventListener('submit', e => { e.preventDefault(); calculate(true); });
+$('swap').addEventListener('click', () => {
+  const d = snapshotParent('dam'), s = snapshotParent('sire');
+  writeParent('dam', s); writeParent('sire', d); markStale();
+});
+$('example').addEventListener('click', () => {
+  writeParent('dam', EXAMPLE.dam); writeParent('sire', EXAMPLE.sire);
+  $('related').value = '0'; $('example-note').hidden = false; calculate();
+});
+$('clear').addEventListener('click', () => {
+  writeParent('dam', BLANK); writeParent('sire', BLANK);
+  $('related').value = '0'; $('example-note').hidden = true; markStale();
+});
+
+writeParent('dam', EXAMPLE.dam);
+writeParent('sire', EXAMPLE.sire);
+calculate();
+</script>
+</body>
+</html>
