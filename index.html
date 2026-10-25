@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Breeding calculator for the Realistic Horse Genetics Minecraft mod. Enter two parents' guidebook stats and see the three most likely foals.">
+<meta name="description" content="Breeding calculator for the Realistic Horse Genetics Minecraft mod. Enter two parents' guidebook stats, or upload screenshots, and see the three most likely foals.">
 <meta property="og:title" content="Foal Forecast">
 <meta property="og:description" content="Breeding calculator for the Realistic Horse Genetics Minecraft mod: the three most likely foals, with height, health, speed and jump.">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
@@ -224,6 +224,25 @@ select.mixed { color: var(--muted); font-style: italic; }
 }
 .split:hover { color: var(--ink); border-color: var(--muted); }
 .split[aria-expanded="true"] { background: var(--surface-2); color: var(--ink); }
+
+/* Screenshot reader */
+.shot {
+  display: grid; gap: 8px;
+  padding: 12px;
+  border: 1.5px dashed var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+.shot:focus-visible, .shot.drag { border-color: var(--accent); outline: none; }
+.shot.drag { background: var(--surface); }
+.shot-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.btn.small { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.shot .hint { margin: 0; }
+.shot-status { font-size: 13px; margin: 0; color: var(--muted); }
+.shot-status.ok { color: var(--accent); font-weight: 700; }
+.shot-status.err { color: var(--danger-ink); }
+.shot-status .miss { display: block; font-weight: 400; color: var(--muted); }
+select.autofilled { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
 /* Shared controls */
 .shared {
@@ -501,6 +520,7 @@ details.how a { color: var(--accent); }
         <li><b>Max health</b> is 15 + half of (lung + gut + hoof + immune), then scaled by adult size, so big horses get more health. Gray, silver dapple and leopard can each take a little away.</li>
         <li><b>Height.</b> LCORL Large adds 3% per copy. HMGA2 Small takes off 6% with one copy and 19% with two. About 20 hidden genes add the rest, so a parent's height (from its inventory screen) is used to estimate them. A foal's adult height is also pulled 30% toward its mother's height.</li>
         <li><b>Size classes</b> follow the mod: under 317.5 kg is too small to ride, over 635 kg fits two riders. Pony-sized means 14.2 hands or less.</li>
+        <li><b>Fill from screenshots</b> reads the guidebook with Tesseract.js, a text reader that runs in your browser, so images never leave your device. It only accepts values the mod can produce, and leaves a box alone when a reading is unclear. Full-size screenshots of the open book work best.</li>
         <li>Assumes the mod's default settings (sizes, genetic stats and health effects all on).</li>
       </ul>
       <p>Built from the mod's own source code: <a href="https://github.com/sekelsta/horse-colors" target="_blank" rel="noopener">github.com/sekelsta/horse-colors</a>. Fan-made, not affiliated with the mod author.</p>
@@ -1144,6 +1164,14 @@ function buildParent({ p, title, role, sym }) {
       <h2 id="${p}-title"><span class="sex" aria-hidden="true">${sym}</span>${title}</h2>
       <span class="role">${role}</span>
     </div>
+    <div class="shot" id="${p}-shot-zone" tabindex="0" data-parent="${p}" aria-label="${title} guidebook screenshots: drop or paste images here">
+      <div class="shot-row">
+        <button type="button" class="btn small" data-shot="${p}">Fill from screenshots</button>
+        <p class="hint">Or drop or paste them here. Guidebook pages 1–2 and 3–4.</p>
+      </div>
+      <input type="file" id="${p}-shot" accept="image/*" multiple hidden>
+      <p class="shot-status" id="${p}-shot-status" role="status">Read on your device. Nothing is uploaded.</p>
+    </div>
     <div class="block">
       <div class="block-title">Size <span class="src">inventory screen + guidebook page 4</span></div>
       <div class="row">
@@ -1264,6 +1292,7 @@ function readInputs() {
   return P;
 }
 function writeParent(p, d) {
+  document.querySelectorAll(`select[id^="${p}-"].autofilled`).forEach(el => el.classList.remove('autofilled'));
   $(p + '-height').value = d.height || '';
   $(p + '-lcorl').value = d.lcorl; $(p + '-hmga').value = d.hmga;
   CATS.forEach(c => { $(`${p}-${c}`).value = d.stats[c]; });
@@ -1512,6 +1541,436 @@ $('clear').addEventListener('click', () => {
 writeParent('dam', EXAMPLE.dam);
 writeParent('sire', EXAMPLE.sire);
 calculate();
+</script>
+
+<script id="reader">
+/* ===================== Screenshot reader =====================
+   Cleans up a guidebook screenshot, reads it with Tesseract.js in the browser,
+   then matches each line to a guidebook label and an allowed value. */
+const TESSERACT_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+
+/* ---- Image clean-up ---- */
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not an image this browser can open.')); };
+    img.src = url;
+  });
+}
+
+// Returns one or two canvases (one per book page), black text on white, enlarged and softened
+function prepareImage(img, soften = 0.55, size = 56) {
+  let W = img.naturalWidth, H = img.naturalHeight;
+  const shrink = Math.min(1, 4000 / Math.max(W, H));
+  W = Math.round(W * shrink); H = Math.round(H * shrink);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, W, H);
+  const px = ctx.getImageData(0, 0, W, H).data;
+
+  // 1. Find the parchment (light, yellowish) so the world behind the book is ignored
+  let x0 = W, x1 = -1, y0 = H, y1 = -1, found = 0;
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) {
+    const i = (y * W + x) * 4, r = px[i], g = px[i + 1], b = px[i + 2];
+    if (0.299 * r + 0.587 * g + 0.114 * b > 170 && r > b + 12) {
+      found++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (found < (W * H) / 4 * 0.05) { x0 = 0; y0 = 0; x1 = W - 1; y1 = H - 1; }
+  const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+
+  // 2. Text mask: dark and grey (the book's brown leather is too colourful to count).
+  //    The cut-off sits between this image's ink and paper, so resized screenshots with
+  //    grey letter edges keep their full stroke width.
+  const hist = new Uint32Array(256); let nGrey = 0;
+  for (let y = 0; y < ch; y += 2) for (let x = 0; x < cw; x += 2) {
+    const i = ((y + y0) * W + (x + x0)) * 4, r = px[i], g = px[i + 1], b = px[i + 2];
+    if (Math.max(r, g, b) - Math.min(r, g, b) < 45) { hist[Math.round(0.299 * r + 0.587 * g + 0.114 * b)]++; nGrey++; }
+  }
+  const pctl = q => { let acc = 0; for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= q * nGrey) return v; } return 255; };
+  let paper = 0, nPaper = 0;
+  for (let y = 0; y < ch; y += 3) for (let x = 0; x < cw; x += 3) {
+    const i = ((y + y0) * W + (x + x0)) * 4; paper += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]; nPaper++;
+  }
+  paper = Math.max(paper / nPaper, pctl(0.5));
+  const ink = pctl(0.02);
+  const cut = Math.max(90, Math.min(170, ink + 0.6 * (paper - ink)));
+  const mask = new Uint8Array(cw * ch);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    const i = ((y + y0) * W + (x + x0)) * 4, r = px[i], g = px[i + 1], b = px[i + 2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b, sat = Math.max(r, g, b) - Math.min(r, g, b);
+    if (lum < cut && sat < 45) mask[y * cw + x] = 1;
+  }
+
+  // 3. Split at the gap between the two pages, if there is one
+  const colHas = new Uint8Array(cw);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (mask[y * cw + x]) colHas[x] = 1;
+  let best = null, runStart = -1;
+  const lo = Math.floor(cw * 0.3), hi = Math.ceil(cw * 0.7);
+  for (let x = lo; x <= hi; x++) {
+    if (x < hi && !colHas[x]) { if (runStart < 0) runStart = x; }
+    else if (runStart >= 0) { const len = x - runStart; if (!best || len > best.len) best = { start: runStart, len }; runStart = -1; }
+  }
+  const regions = best && best.len >= cw * 0.015
+    ? [[0, best.start], [best.start + best.len, cw]]
+    : [[0, cw]];
+
+  return regions.map(([rx0, rx1]) => renderRegion(mask, cw, ch, rx0, rx1, soften, size)).filter(Boolean);
+}
+
+function renderRegion(mask, cw, ch, rx0, rx1, soften, size) {
+  // Trim to the text
+  let tx0 = rx1, tx1 = rx0 - 1, ty0 = ch, ty1 = -1;
+  const rowHas = new Uint8Array(ch);
+  for (let y = 0; y < ch; y++) for (let x = rx0; x < rx1; x++) if (mask[y * cw + x]) {
+    rowHas[y] = 1; if (x < tx0) tx0 = x; if (x > tx1) tx1 = x; if (y < ty0) ty0 = y; if (y > ty1) ty1 = y;
+  }
+  if (tx1 < tx0) return null;
+  // Typical text-line height decides how much to enlarge (aim for ~56px letters by default)
+  const runs = []; let rs = -1;
+  for (let y = ty0; y <= ty1 + 1; y++) {
+    if (y <= ty1 && rowHas[y]) { if (rs < 0) rs = y; }
+    else if (rs >= 0) { runs.push(y - rs); rs = -1; }
+  }
+  runs.sort((a, b) => a - b);
+  const lineH = runs.length ? runs[Math.floor(runs.length / 2)] : 14;
+  const scale = Math.max(1, Math.min(10, Math.round(size / Math.max(1, lineH))));
+  const pad = 6;
+  const w = tx1 - tx0 + 1 + pad * 2, h = ty1 - ty0 + 1 + pad * 2;
+  const W2 = w * scale, H2 = h * scale;
+  let a = new Float32Array(W2 * H2).fill(255);
+  for (let y = 0; y < h - pad * 2; y++) for (let x = 0; x < w - pad * 2; x++) {
+    if (!mask[(y + ty0) * cw + (x + tx0)]) continue;
+    const oy = (y + pad) * scale, ox = (x + pad) * scale;
+    for (let dy = 0; dy < scale; dy++) a.fill(0, (oy + dy) * W2 + ox, (oy + dy) * W2 + ox + scale);
+  }
+  a = gaussianBlur(a, W2, H2, soften * scale);
+  const out = document.createElement('canvas'); out.width = W2; out.height = H2;
+  const octx = out.getContext('2d');
+  const id = octx.createImageData(W2, H2);
+  for (let i = 0; i < a.length; i++) { const v = a[i]; id.data[i * 4] = v; id.data[i * 4 + 1] = v; id.data[i * 4 + 2] = v; id.data[i * 4 + 3] = 255; }
+  octx.putImageData(id, 0, 0);
+  return out;
+}
+
+function gaussianBlur(src, w, h, sigma) {
+  if (sigma < 0.5) return src;
+  const r = Math.ceil(sigma * 3), k = [];
+  let s = 0;
+  for (let i = -r; i <= r; i++) { const v = Math.exp(-(i * i) / (2 * sigma * sigma)); k.push(v); s += v; }
+  for (let i = 0; i < k.length; i++) k[i] /= s;
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let acc = 0;
+    for (let j = -r; j <= r; j++) { const xx = Math.min(w - 1, Math.max(0, x + j)); acc += src[y * w + xx] * k[j + r]; }
+    tmp[y * w + x] = acc;
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let acc = 0;
+    for (let j = -r; j <= r; j++) { const yy = Math.min(h - 1, Math.max(0, y + j)); acc += tmp[yy * w + x] * k[j + r]; }
+    out[y * w + x] = acc;
+  }
+  return out;
+}
+
+/* ---- Text recognition (Tesseract.js, loaded on first use) ---- */
+let workerPromise = null;
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if (window.Tesseract) return resolve();
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('load'));
+    document.head.appendChild(s);
+  });
+}
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+let progressCb = null;
+function getWorker() {
+  if (!workerPromise) {
+    workerPromise = withTimeout((async () => {
+      await loadScriptOnce(TESSERACT_SRC);
+      const worker = await window.Tesseract.createWorker('eng', 1, {
+        logger: m => { if (progressCb) progressCb(m); },
+      });
+      return worker;
+    })(), 90000).catch(e => { workerPromise = null; throw e; });
+  }
+  return workerPromise;
+}
+
+/* ---- Matching recognized text to guidebook lines ---- */
+const CONFUSE = { '/': '|\\1lIi7"\'°“”’`L', '+': '4tfT7', '1': 'lIi|L', '2': 'zZ', 'Z': '2', '0': 'oO', 'o': '0g', 'g': 'oaq9' };
+function subCost(a, b) {
+  if (a === b) return 0;
+  if ((CONFUSE[a] && CONFUSE[a].includes(b)) || (CONFUSE[b] && CONFUSE[b].includes(a))) return 0.4;
+  return 1;
+}
+function wlev(a, b) {
+  const m = a.length, n = b.length;
+  let prev = new Array(n + 1), cur = new Array(n + 1);
+  prev[0] = 0;
+  for (let j = 1; j <= n; j++) prev[j] = prev[j - 1] + (b[j - 1] === '/' ? 0.5 : 1);
+  for (let i = 1; i <= m; i++) {
+    cur[0] = prev[0] + (a[i - 1] === '/' ? 0.5 : 1);
+    // A dropped or extra "/" is cheap: the reader often loses the pixel-font slash
+    for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + (a[i - 1] === '/' ? 0.5 : 1), cur[j - 1] + (b[j - 1] === '/' ? 0.5 : 1), prev[j - 1] + subCost(a[i - 1], b[j - 1]));
+    [prev, cur] = [cur, prev];
+  }
+  return prev[n];
+}
+const squash = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const LINE_LABELS = [
+  ['lung', 'lunghealth'], ['gut', 'guthealth'], ['hoof', 'hoofhealth'], ['immune', 'immunesystem'],
+  ['athl', 'athleticism'], ['energy', 'energy'], ['quick', 'quickness'], ['stride', 'stride'],
+  ['conf', 'conformation'], ['bascule', 'bascule'], ['agility', 'agility'],
+  ['lcorl', 'lcorl'], ['hmga', 'hmga2'],
+  ['c:ext', 'extension'], ['c:ago', 'agouti'], ['c:dun', 'dun'], ['c:gray', 'gray'], ['c:gray', 'grey'],
+  ['c:cream', 'cream'], ['c:silver', 'silverdapple'], ['c:champ', 'champagne'], ['c:tob', 'tobiano'],
+  ['c:kit', 'kitwhite'], ['c:frame', 'frameovero'], ['c:mitf', 'mitfsplash'], ['c:lp', 'leopardcomplex'],
+  ['c:patn', 'pattern1'], ['c:mush', 'mushroom'], ['c:te', 'tigereye'],
+];
+const HEADERS = [['speed', 'speed'], ['jump', 'jumppower'], ['ath', 'speedandjumping'], ['health', 'health']];
+
+function labelScore(text, target) {
+  const a = squash(text);
+  if (!a) return 0;
+  const d = wlev(a, target);
+  if (target.length <= 3) return d === 0 ? 1 : 0;
+  if (target.length <= 5) {
+    const maxD = (target === 'lcorl' || target === 'hmga2') ? 2 : 1;  // gene names often lose a letter
+    return d <= maxD ? 1 - d / (target.length * 2) : 0;
+  }
+  return 1 - d / Math.max(a.length, target.length);
+}
+function matchLabel(text) {
+  let best = null;
+  for (const [key, target] of LINE_LABELS) {
+    const s = labelScore(text, target);
+    if (s >= 0.7 && (!best || s > best.score)) best = { key, score: s };
+  }
+  return best;
+}
+function matchHeader(text) {
+  let best = null;
+  for (const [key, target] of HEADERS) {
+    const s = labelScore(text, target);
+    if (s >= 0.75 && (!best || s > best.score)) best = { key, score: s };
+  }
+  return best;
+}
+function matchRating(v) {
+  const a = squash(v);
+  let best = null, second = Infinity;
+  for (const r of RATINGS) {
+    const d = wlev(a, r.toLowerCase()) / r.length;
+    if (!best || d < best.d) { if (best) second = best.d; best = { r, d }; } else if (d < second) second = d;
+  }
+  return best && best.d <= 0.4 ? best.r : null;
+}
+function matchSizeGene(v, small) {
+  const a = squash(v);
+  const other = small ? 'small' : 'large';
+  const cands = [['NN', 'normalnormal'], ['NX', 'normal' + other], ['NX', other + 'normal'], ['XX', other + other]];
+  let best = null;
+  for (const [code, t] of cands) { const d = wlev(a, t); if (!best || d < best.d) best = { code, d }; }
+  return best && best.d <= 3 ? best.code : null;
+}
+// How common each allele is in wild horses, used only to break near-ties between readings
+const ALLELE_FREQ = {};
+COLOR_GENES.forEach(g => { ALLELE_FREQ[g.id] = Object.fromEntries(g.alleles.map(([a, f]) => [a, f])); });
+ALLELE_FREQ.tob = { '+': 0.94, 'To': 0.06 };
+ALLELE_FREQ.kit = { '+': 0.77, 'W20': 0.17, 'Sb1': 0.02, 'Rn': 0.03, 'W4': 0.005, 'W5': 0.005 };
+function matchGenotype(v, geneId) {
+  const gene = COLOR_GENES.find(g => g.id === geneId);
+  const clean = v.replace(/[“”"’'`°]/g, '/').replace(/\s+/g, '').replace(/^[^A-Za-z0-9+]+|[^A-Za-z0-9+]+$/g, '');
+  if (!clean) return null;
+  const alle = gene.alleles.map(a => a[0]);
+  const freq = ALLELE_FREQ[geneId];
+  const scored = [];
+  for (const a of alle) for (const b of alle) {
+    scored.push({ pair: [a, b], d: wlev(clean, a + '/' + b), len: (a + '/' + b).length, prior: (freq[a] || 0.001) * (freq[b] || 0.001) });
+  }
+  scored.sort((x, y) => x.d - y.d);
+  const b1 = scored[0];
+  if (b1.d > Math.max(1.2, 0.34 * b1.len)) return null;
+  const band = scored.filter(s => s.d - b1.d < 0.5);
+  if (band.length === 1) return b1.pair;
+  // Equally good readings: only pick one if it is far more common than the rest
+  band.sort((x, y) => y.prior - x.prior);
+  return band[0].prior >= 10 * band[1].prior ? band[0].pair : null;
+}
+
+// Turn recognized text into { field: value } plus a list of lines we saw but couldn't read
+function parseGuidebook(text, state) {
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || /^page\b/i.test(line)) continue;
+    // Candidate label/value splits: at the first colon, else after 1-3 words
+    const splits = [];
+    const ci = line.indexOf(':');
+    if (ci > 0) splits.push([line.slice(0, ci), line.slice(ci + 1).trim()]);
+    const words = line.split(/\s+/);
+    for (let k = 1; k <= Math.min(3, words.length - 1); k++) splits.push([words.slice(0, k).join(' '), words.slice(k).join(' ')]);
+    // Section headers ("Speed", "Jump Power") decide which Conformation is which
+    const hdr = matchHeader(ci > 0 && !splits[0][1] ? splits[0][0] : line);
+    if (hdr && (ci < 0 || !splits[0][1])) { state.section = hdr.key; continue; }
+    let best = null;
+    for (const [lab, val] of splits) {
+      const m = matchLabel(lab);
+      if (m && (!best || m.score > best.m.score)) best = { m, val };
+    }
+    if (!best) continue;
+    const { key } = best.m, val = best.val;
+    let field = key, value = null, label = key;
+    if (key === 'immune') continue;  // not used: the foal's immune system depends on relatedness
+    if (key === 'conf') {
+      field = state.section === 'jump' ? 'jconf' : (state.section === 'speed' ? 'sconf' : (state.filled.sconf ? 'jconf' : 'sconf'));
+    }
+    if (CATS.includes(field)) { value = matchRating(val); label = field; }
+    else if (field === 'lcorl') value = matchSizeGene(val, false);
+    else if (field === 'hmga') value = matchSizeGene(val, true);
+    else if (field.startsWith('c:')) value = matchGenotype(val, field.slice(2));
+    if (value) state.filled[field] = value;
+    else if (!(field in state.filled)) state.missed.add(field);
+  }
+}
+
+const FIELD_NAMES = {
+  lung: 'Lung health', gut: 'Gut health', hoof: 'Hoof health', athl: 'Athleticism', energy: 'Energy',
+  quick: 'Quickness', stride: 'Stride', sconf: 'Speed conformation', bascule: 'Bascule', agility: 'Agility',
+  jconf: 'Jump conformation', lcorl: 'LCORL', hmga: 'HMGA2',
+};
+COLOR_GENES.forEach(g => FIELD_NAMES['c:' + g.id] = g.name);
+
+function applyFilled(p, filled) {
+  let stats = 0, size = 0, colour = 0;
+  const mark = el => { el.classList.add('autofilled'); };
+  for (const [field, value] of Object.entries(filled)) {
+    if (CATS.includes(field)) { const el = $(`${p}-${field}`); el.value = value; mark(el); stats++; }
+    else if (field === 'lcorl' || field === 'hmga') { const el = $(`${p}-${field}`); el.value = value; mark(el); size++; }
+    else if (field.startsWith('c:')) {
+      const id = field.slice(2);
+      [0, 1].forEach(i => { const el = $(`${p}-c-${id}-${i}`); el.value = value[i]; mark(el); });
+      colour++;
+    }
+  }
+  GROUPS.forEach(g => {
+    syncGroup(p, g.key);
+    const sel = $(`${p}-${g.key}`);
+    if (g.subs.some(([k]) => filled[k])) mark(sel);
+    setSplit(`${p}-${g.key}`, sel.value === 'mixed');
+  });
+  if (colour) $('colour-details').open = true;
+  markStale();
+  return { stats, size, colour };
+}
+
+async function readScreenshots(p, files) {
+  const status = $(`${p}-shot-status`);
+  const say = (html, cls = '') => { status.className = 'shot-status' + (cls ? ' ' + cls : ''); status.innerHTML = html; };
+  const imgs = [...files].filter(f => f.type.startsWith('image/'));
+  if (!imgs.length) { say('That isn\'t an image. Use a PNG or JPG screenshot of the guidebook.', 'err'); return; }
+  const zone = $(`${p}-shot-zone`);
+  zone.setAttribute('aria-busy', 'true');
+  try {
+    say('Loading the text reader. The first time takes a few seconds…');
+    let current = 0, total = 0;
+    progressCb = m => {
+      if (m.status === 'recognizing text' && total) say(`Reading screenshot ${current} of ${imgs.length}… ${Math.round(m.progress * 100)}%`);
+    };
+    let worker;
+    try { worker = await getWorker(); }
+    catch (e) {
+      say('The text reader couldn\'t load here. It needs an internet connection, and it doesn\'t work inside the Claude preview. Try the website version.', 'err');
+      return;
+    }
+    const state = { section: null, filled: {}, missed: new Set() };
+    total = imgs.length;
+    for (const file of imgs) {
+      current++;
+      say(`Reading screenshot ${current} of ${imgs.length}…`);
+      let img;
+      try { img = await loadImage(file); } catch (e) { continue; }
+      const pages = prepareImage(img, 0.55);
+      let bigger = null;
+      for (let r = 0; r < pages.length; r++) {
+        const local = { section: null, filled: {}, missed: new Set() };
+        // Read the page as one block of text (mode 6); this handles the pixel font best
+        await worker.setParameters({ tessedit_pageseg_mode: '6' });
+        parseGuidebook((await worker.recognize(pages[r])).data.text || '', local);
+        // Second read in column mode (4) for any line we couldn't make out
+        if (local.missed.size) {
+          const again = { section: null, filled: {}, missed: new Set() };
+          await worker.setParameters({ tessedit_pageseg_mode: '4' });
+          parseGuidebook((await worker.recognize(pages[r])).data.text || '', again);
+          for (const f of [...local.missed]) if (again.filled[f]) { local.filled[f] = again.filled[f]; local.missed.delete(f); }
+        }
+        // Last try: the same page enlarged more, since the reader is sensitive to letter size
+        if (local.missed.size) {
+          if (!bigger) bigger = prepareImage(img, 0.55, 80);
+          if (bigger[r]) {
+            const third = { section: null, filled: {}, missed: new Set() };
+            await worker.setParameters({ tessedit_pageseg_mode: '6' });
+            parseGuidebook((await worker.recognize(bigger[r])).data.text || '', third);
+            for (const f of [...local.missed]) if (third.filled[f]) { local.filled[f] = third.filled[f]; local.missed.delete(f); }
+          }
+        }
+        for (const [f, v] of Object.entries(local.filled)) if (!(f in state.filled)) state.filled[f] = v;
+        local.missed.forEach(f => state.missed.add(f));
+      }
+    }
+    progressCb = null;
+    const filledKeys = Object.keys(state.filled);
+    if (!filledKeys.length) {
+      say('Couldn\'t find guidebook text in that image. Use a clear, full-size screenshot of the open book (pages 1–2 or 3–4).', 'err');
+      return;
+    }
+    const n = applyFilled(p, state.filled);
+    const parts = [];
+    if (n.stats) parts.push(`${n.stats} stat${n.stats > 1 ? 's' : ''}`);
+    if (n.size) parts.push(n.size === 2 ? 'both size genes' : '1 size gene');
+    if (n.colour) parts.push(`${n.colour} colour gene${n.colour > 1 ? 's' : ''}`);
+    const missed = [...state.missed].filter(f => !(f in state.filled)).map(f => FIELD_NAMES[f]).filter(Boolean);
+    say(`Filled ${parts.join(', ')}. Outlined boxes were filled in for you, so check them against the book.` +
+      (missed.length ? `<span class="miss">Couldn't read: ${missed.join(', ')}. Set ${missed.length > 1 ? 'these' : 'this'} by hand.</span>` : ''), 'ok');
+  } catch (e) {
+    say('Something went wrong reading that screenshot. Try again, or fill the boxes by hand.', 'err');
+  } finally {
+    progressCb = null;
+    zone.removeAttribute('aria-busy');
+  }
+}
+
+/* ---- Upload, drop and paste ---- */
+let lastPanel = 'dam';
+for (const { p } of PARENTS) {
+  const zone = $(`${p}-shot-zone`), input = $(`${p}-shot`);
+  $(`${p}-panel`).addEventListener('pointerdown', () => { lastPanel = p; });
+  $(`${p}-panel`).addEventListener('focusin', () => { lastPanel = p; });
+  input.addEventListener('change', () => { if (input.files.length) readScreenshots(p, input.files); input.value = ''; });
+  zone.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === zone) { e.preventDefault(); input.click(); } });
+  ['dragenter', 'dragover'].forEach(t => zone.addEventListener(t, e => { e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(t => zone.addEventListener(t, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) readScreenshots(p, e.dataTransfer.files); });
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-shot]');
+  if (b) $(`${b.dataset.shot}-shot`).click();
+});
+document.addEventListener('paste', e => {
+  const files = [...(e.clipboardData ? e.clipboardData.files : [])].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  e.preventDefault();
+  readScreenshots(lastPanel, files);
+});
+document.addEventListener('change', e => { if (e.target.classList) e.target.classList.remove('autofilled'); }, true);
 </script>
 </body>
 </html>
